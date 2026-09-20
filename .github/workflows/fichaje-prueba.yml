@@ -1,0 +1,15 @@
+name: Fichaje Prueba
+
+on:
+  workflow_dispatch:
+
+jobs:
+  punch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fichar ahora (prueba)
+        env:
+          SIGMA_EMAIL: ${{ secrets.SIGMA_EMAIL }}
+          SIGMA_PASS: ${{ secrets.SIGMA_PASS }}
+        run: python3 sigma_punch.py --test
