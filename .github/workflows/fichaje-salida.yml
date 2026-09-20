@@ -3,7 +3,7 @@ name: Fichaje Salida
 on:
   schedule:
     # 15:50 UTC = 17:50 Madrid (verano) / 16:50 (invierno).
-    # El script espera hasta su objetivo aleatorio (18:00:00â18:02:59 Madrid).
+    # El script espera hasta su objetivo aleatorio (18:00:00-18:02:59 Madrid).
     - cron: '50 15 * * *'
   workflow_dispatch:
 
@@ -13,6 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Fichar salida
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         env:
           SIGMA_EMAIL: ${{ secrets.SIGMA_EMAIL }}
           SIGMA_PASS: ${{ secrets.SIGMA_PASS }}
