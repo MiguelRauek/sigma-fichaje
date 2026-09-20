@@ -1,0 +1,19 @@
+name: Fichaje Entrada
+
+on:
+  schedule:
+    # 7:20 UTC = 9:20 Madrid (verano) / 8:20 (invierno).
+    # El script espera hasta su objetivo aleatorio (9:30â9:35 Madrid).
+    - cron: '20 7 * * *'
+  workflow_dispatch:
+
+jobs:
+  punch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fichar entrada
+        env:
+          SIGMA_EMAIL: ${{ secrets.SIGMA_EMAIL }}
+          SIGMA_PASS: ${{ secrets.SIGMA_PASS }}
+        run: python3 sigma_punch.py --entry
