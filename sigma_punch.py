@@ -91,7 +91,7 @@ class Session:
             req = urllib.request.Request(url, data=body, headers=headers)
         else:
             req = urllib.request.Request(url, headers=headers)
-        with self.opener.open(req, timeout=30) as resp:
+        with self.opener.open(req, timeout=90) as resp:
             return resp.geturl(), resp.read().decode("utf-8", "replace")
 
     def get(self, url: str, referer: str | None = None):
