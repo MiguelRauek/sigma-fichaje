@@ -36,13 +36,13 @@ from datetime import datetime, timedelta
 from http.cookiejar import CookieJar
 from zoneinfo import ZoneInfo
 
-BASE_URL = os.environ.get("SIGMA_BASE_URL", "https://sigmtime.es").rstrip("/")
+BASE_URL = os.environ.get("SIGMA_BASE_URL", "https://sigmatime.es").rstrip("/")
 EMAIL = os.environ.get("SIGMA_EMAIL", "")
 PASS = os.environ.get("SIGMA_PASS", "")
 TZ = ZoneInfo(os.environ.get("TZ", "Europe/Madrid"))
 
-UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ",
-      "(KHTML, like Gecko) Chrome/126.0 Safari/537.36)")
+UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+      "(KHTML, like Gecko) Chrome/126.0 Safari/537.36")
 
 # ---------------------------------------------------------------------------
 # Horarios aleatorios
@@ -56,7 +56,7 @@ def seconds_of_day(dt: datetime) -> int:
 
 def target_entry() -> int:
     """Aleatoria uniforme en [9:30:00, 9:35:59]. Siempre entre 9:30 y 9:35."""
-   return 9 * 3600 + 30 * 60 + random.randint(0, 359)
+    return 9 * 3600 + 30 * 60 + random.randint(0, 359)
 
 def target_exit() -> int:
     """Segundo aleatorio uniforme en [18:00:00, 18:02:59]. Nunca antes de 18:00:00."""
