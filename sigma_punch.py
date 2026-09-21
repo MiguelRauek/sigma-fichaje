@@ -18,6 +18,10 @@ Variables de entorno:
   SIGMA_BASE_URL                   # por defecto https://sigmatime.es
   TZ                               # zona horaria, por defecto Europe/Madrid
 
+Credenciales alternativas (para móvil/Pydroid):
+  config.json junto al script con {"email": "...", "pass": "..."} se usa si
+  faltan SIGMA_EMAIL/SIGMA_PASS. Nunca subir config.json a GitHub.
+
 Flujo (verificado contra sigmatime.es):
   1. POST cf_usu + cf_pass a /acceso.php            -> cookie de sesión
   2. GET  /v2/portal-empleado.php                   -> hash c_usu + fichajes de hoy
@@ -25,6 +29,7 @@ Flujo (verificado contra sigmatime.es):
   4. GET  /v2/portal-empleado.php                   -> verificar que subió en 1
 """
 
+import json
 import os
 import random
 import re
@@ -37,9 +42,28 @@ from http.cookiejar import CookieJar
 from zoneinfo import ZoneInfo
 
 BASE_URL = os.environ.get("SIGMA_BASE_URL", "https://sigmatime.es").rstrip("/")
-EMAIL = os.environ.get("SIGMA_EMAIL", "")
-PASS = os.environ.get("SIGMA_PASS", "")
-TZ = ZoneInfo(os.environ.get("TZ", "Europe/Madrid"))
+
+try:
+    TZ = ZoneInfo(os.environ.get("TZ", "Europe/Madrid"))
+except Exception:
+    # Android/Pydroid puede no traer la base de datos de zonas: usar la local del dispositivo.
+    TZ = datetime.now().astimezone().tzinfo
+
+def _load_credentials():
+    """Credenciales: variables de entorno o config.json junto al script."""
+    email = os.environ.get("SIGMA_EMAIL", "")
+    password = os.environ.get("SIGMA_PASS", "")
+    if email and password:
+        return email, password
+    cfg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+    try:
+        with open(cfg_path, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+        return cfg.get("email", ""), cfg.get("pass", "")
+    except (OSError, ValueError):
+        return "", ""
+
+EMAIL, PASS = _load_credentials()
 
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/126.0 Safari/537.36")
