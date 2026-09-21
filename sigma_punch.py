@@ -8,7 +8,7 @@ hora de cada fichaje. Sin dependencias externas (solo stdlib), pensado para
 GitHub Actions.
 
 Uso:
-  python3 sigma_punch.py --entry   # entrada: aleatoria entre 9:30 y 9:35
+  python3 sigma_punch.py --entry   # entrada: aleatoria entre 9:57 y 10:03
   python3 sigma_punch.py --exit    # salida:  segundo aleatorio en [18:00:00, 18:02:59]
   python3 sigma_punch.py --test    # fichar ya (para probar)
   python3 sigma_punch.py --check   # comprobar login y portal SIN fichar nada
@@ -55,8 +55,8 @@ def seconds_of_day(dt: datetime) -> int:
     return dt.hour * 3600 + dt.minute * 60 + dt.second
 
 def target_entry() -> int:
-    """Aleatoria uniforme en [9:30:00, 9:35:59]. Siempre entre 9:30 y 9:35."""
-    return 9 * 3600 + 30 * 60 + random.randint(0, 359)
+    """Aleatoria uniforme en [9:57:00, 10:03:59]. Siempre entre 9:57 y 10:03."""
+    return 9 * 3600 + 57 * 60 + random.randint(0, 419)
 
 def target_exit() -> int:
     """Segundo aleatorio uniforme en [18:00:00, 18:02:59]. Nunca antes de 18:00:00."""
