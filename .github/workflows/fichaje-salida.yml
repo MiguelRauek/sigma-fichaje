@@ -1,9 +1,10 @@
+# v2: re-registro de schedule (2026-09-22)
 name: Fichaje Salida
 
 on:
   schedule:
     # 15:50 UTC = 17:50 Madrid (verano) / 16:50 (invierno).
-    # El script espera hasta su objetivo aleatorio (18:00:00-18:02:59 Madrid).
+    # El script espera hasta su objetivo aleatorio (18:00-18:02:59 Madrid).
     - cron: '50 15 * * *'
   workflow_dispatch:
 
