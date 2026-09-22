@@ -1,32 +1,36 @@
 #!/usr/bin/env python3
 """
-SigmaFichaje — fichaje automático en SigmaTime (sigmatime.es).
+SigmaFichaje â fichaje automÃ¡tico en SigmaTime (sigmatime.es).
 
 Ejecuta el fichaje de entrada o salida en el horario aleatorio configurado.
-Sin notificaciones de ningún tipo (ni Telegram ni email): solo registra la
+Sin notificaciones de ningÃºn tipo (ni Telegram ni email): solo registra la
 hora de cada fichaje. Sin dependencias externas (solo stdlib), pensado para
 GitHub Actions.
 
 Uso:
-  python3 sigma_punch.py --entry   # entrada: aleatoria entre 9:57 y 10:03
+  python3 sigma_punch.py           # modo diario: entrada + salida (para Pydroid)
+  python3 sigma_punch.py --entry   # entrada: aleatoria entre 9:30 y 9:35
   python3 sigma_punch.py --exit    # salida:  segundo aleatorio en [18:00:00, 18:02:59]
   python3 sigma_punch.py --test    # fichar ya (para probar)
   python3 sigma_punch.py --check   # comprobar login y portal SIN fichar nada
+
+Modo diario (Pydroid): sin argumentos ficha la entrada y luego la salida en la
+misma ejecuciÃ³n. Se lanza por la maÃ±ana y queda esperando todo el dÃ­a.
 
 Variables de entorno:
   SIGMA_EMAIL, SIGMA_PASS          # credenciales de sigmatime.es (obligatorias)
   SIGMA_BASE_URL                   # por defecto https://sigmatime.es
   TZ                               # zona horaria, por defecto Europe/Madrid
 
-Credenciales alternativas (para móvil/Pydroid):
+Credenciales alternativas (para mÃ³vil/Pydroid):
   config.json junto al script con {"email": "...", "pass": "..."} se usa si
   faltan SIGMA_EMAIL/SIGMA_PASS. Nunca subir config.json a GitHub.
 
 Flujo (verificado contra sigmatime.es):
-  1. POST cf_usu + cf_pass a /acceso.php            -> cookie de sesión
+  1. POST cf_usu + cf_pass a /acceso.php            -> cookie de sesiÃ³n
   2. GET  /v2/portal-empleado.php                   -> hash c_usu + fichajes de hoy
   3. POST c_usu + c_tip=1 + fic_subtipo=0 + btn_fichar -> registra el fichaje
-  4. GET  /v2/portal-empleado.php                   -> verificar que subió en 1
+  4. GET  /v2/portal-empleado.php                   -> verificar que subiÃ³ en 1
 """
 
 import json
@@ -79,8 +83,8 @@ def seconds_of_day(dt: datetime) -> int:
     return dt.hour * 3600 + dt.minute * 60 + dt.second
 
 def target_entry() -> int:
-    """Aleatoria uniforme en [9:57:00, 10:03:59]. Siempre entre 9:57 y 10:03."""
-    return 9 * 3600 + 57 * 60 + random.randint(0, 419)
+    """Aleatoria uniforme en [9:30:00, 9:34:59]. Siempre entre 9:30 y 9:35."""
+    return 9 * 3600 + 30 * 60 + random.randint(0, 299)
 
 def target_exit() -> int:
     """Segundo aleatorio uniforme en [18:00:00, 18:02:59]. Nunca antes de 18:00:00."""
@@ -96,7 +100,7 @@ def wait_until(target_secs: int, label: str) -> None:
         time.sleep(min(delta, 60))
 
 # ---------------------------------------------------------------------------
-# Cliente HTTP con cookies de sesión
+# Cliente HTTP con cookies de sesiÃ³n
 # ---------------------------------------------------------------------------
 
 class Session:
@@ -115,8 +119,8 @@ class Session:
             req = urllib.request.Request(url, data=body, headers=headers)
         else:
             req = urllib.request.Request(url, headers=headers)
-        with self.opener.open(req, timeout=90) as resp:
-            return resp.geturl(), resp.read().decode("utf-8", "replace")
+        with self.opener.open(req, timeout=30) as resp:
+            return resp.geturl(), resp.read().decode("utf-8", "replace"")
 
     def get(self, url: str, referer: str | None = None):
         return self._request(url, None, referer)
@@ -124,7 +128,7 @@ class Session:
     def post(self, url: str, data: dict, referer: str | None = None):
         return self._request(url, data, referer)
 
-# ---------------------------------------------------------------------------
+# --------------------------------------------------------------------------
 # Flujo de fichaje
 # ---------------------------------------------------------------------------
 
@@ -152,7 +156,7 @@ def extract_cusu(html: str):
 def count_today(html: str) -> int:
     """Cuenta los fichajes (HH:MM:SS) de hoy en el listado del portal.
 
-    El HTML real es una sola línea con <br> entre días:
+    El HTML real es una sola lÃ­nea con <br> entre dÃ­as:
       <strong>19/09/2026</strong> <font color="green">09:35:42</font> ... <br>
     """
     today = now_local().strftime("%d/%m/%Y")
@@ -186,13 +190,13 @@ def run_punch():
     before = count_today(portal)
     cusu = extract_cusu(portal)
     if not cusu:
-        return False, f"no se encontró el hash c_usu (fichajes de hoy: {before})"
+        return False, f"no se encontrÃ³ el hash c_usu (fichajes de hoy: {before})"
     do_punch(s, cusu)
     portal2 = get_portal(s)
     after = count_today(portal2) if portal2 is not None else -1
     if after == before + 1:
-        return True, f"fichaje registrado (hoy: {before} → {after})"
-    return False, f"el fichaje no se reflejó (antes={before}, después={after})"
+        return True, f"fichaje registrado (hoy: {before} â {after})"
+    return False, f"el fichaje no se reflejÃ³ (antes={before}, despuÃ©s={after})"
 
 def run_check():
     """Comprueba login + portal y cuenta los fichajes de hoy, SIN fichar."""
@@ -206,12 +210,45 @@ def run_check():
     before = count_today(portal)
     cusu = extract_cusu(portal)
     if not cusu:
-        return False, f"no se encontró el hash c_usu (fichajes de hoy: {before})"
-    return True, f"login OK — c_usu={cusu} — fichajes de hoy: {before} (no se ha fichado nada)"
+        return False, f"no se encontrÃ³ el hash c_usu (fichajes de hoy: {before})"
+    return True, f"login OK â c_usu={cusu} â fichajes de hoy: {before} (no se ha fichado nada)"
 
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
+def punch_once(mode: str, label: str) -> int:
+    """Espera a la ventana del modo y ficha con reintentos. Devuelve 0 si OK."""
+    if mode == "entry":
+        target = target_entry()
+        window_end, window_txt = 9 * 3600 + 35 * 60, "9:30:00â9:35:00"
+    elif mode == "exit":
+        target = target_exit()
+        window_end, window_txt = 18 * 3600 + 179, "18:00:00â18:02:59"
+    else:
+        target = seconds_of_day(now_local())
+        window_end, window_txt = None, ""
+
+    base = datetime.combine(now_local().date(), datetime.min.time())
+    target_dt = base + timedelta(seconds=target)
+    print(f"[{label}] objetivo: {target_dt.strftime('%H:%M:%S')} ({TZ})")
+
+    if mode != "test":
+        wait_until(target, label)
+
+    # Reintentos: entrada cada 90 s; salida cada 30 s; nunca fuera de la ventana.
+    delay = 90 if mode == "entry" else 30
+    for attempt in range(1, 4):
+        if window_end is not None and seconds_of_day(now_local()) > window_end:
+            print(f"[{label}] fuera de la ventana {window_txt}, no se reintenta")
+            break
+        ok, msg = run_punch()
+        print(f"[{label}] intento {attempt}: {'OK' if ok else 'FALLO'} â {msg}")
+        if ok:
+            return 0
+        if attempt < 3:
+            time.sleep(delay)
+    return 1
 
 def main() -> int:
     if "--entry" in sys.argv:
@@ -223,8 +260,8 @@ def main() -> int:
     elif "--check" in sys.argv:
         mode, label = "check", "Check"
     else:
-        print("Uso: sigma_punch.py --entry | --exit | --test | --check")
-        return 2
+        # Sin argumentos: modo diario (entrada + salida), pensado para Pydroid.
+        mode, label = "daily", "Diario"
 
     if not EMAIL or not PASS:
         print("Faltan las variables SIGMA_EMAIL y SIGMA_PASS")
@@ -232,39 +269,15 @@ def main() -> int:
 
     if mode == "check":
         ok, msg = run_check()
-        print(f"[Check] {'OK' if ok else 'FALLO'} — {msg}")
+        print(f"[Check] {'OK' if ok else 'FALLO'} â {msg}")
         return 0 if ok else 1
 
-    if mode == "entry":
-        target = target_entry()
-    elif mode == "exit":
-        target = target_exit()
-    else:
-        target = seconds_of_day(now_local())
+    if mode == "daily":
+        rc1 = punch_once("entry", "Entrada")
+        rc2 = punch_once("exit", "Salida")
+        return 0 if (rc1 == 0 and rc2 == 0) else 1
 
-    base = datetime.combine(now_local().date(), datetime.min.time())
-    target_dt = base + timedelta(seconds=target)
-    print(f"[{label}] objetivo: {target_dt.strftime('%H:%M:%S')} ({TZ})")
-
-    if mode != "test":
-        wait_until(target, label)
-
-    # Reintentos: entrada cada 90 s; salida cada 30 s y nunca más allá de 18:02:59.
-    delay = 90 if mode == "entry" else 30
-    last_msg = "sin intentos"
-    for attempt in range(1, 4):
-        ok, msg = run_punch()
-        last_msg = msg
-        print(f"[{label}] intento {attempt}: {'OK' if ok else 'FALLO'} — {msg}")
-        if ok:
-            return 0
-        if attempt < 3:
-            if mode == "exit" and seconds_of_day(now_local()) > 18 * 3600 + 179:
-                print("[Salida] fuera de la ventana 18:00:00–18:02:59, no se reintenta")
-                break
-            time.sleep(delay)
-
-    return 1
+    return punch_once(mode, label)
 
 if __name__ == "__main__":
     sys.exit(main())
