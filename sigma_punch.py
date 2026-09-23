@@ -13,6 +13,7 @@ Uso:
   python3 sigma_punch.py --exit    # salida:  segundo aleatorio en [18:00:00, 18:01:59]
   python3 sigma_punch.py --test    # fichar ya (para probar)
   python3 sigma_punch.py --check   # comprobar login y portal SIN fichar nada
+  python3 sigma_punch.py --ver     # ver los fichajes de hoy (igual que en la web)
 
 Modo diario (Pydroid): sin argumentos ficha la entrada y luego la salida en la
 misma ejecución. Se lanza por la mañana y queda esperando todo el día.
@@ -153,8 +154,8 @@ def extract_cusu(html: str):
     m = re.search(r'name="c_usu"[^>]*value="([a-f0-9]+)"', html)
     return m.group(1) if m else None
 
-def count_today(html: str) -> int:
-    """Cuenta los fichajes (HH:MM:SS) de hoy en el listado del portal.
+def list_today(html: str) -> list:
+    """Devuelve las horas (HH:MM:SS) de los fichajes de hoy, como en la web.
 
     El HTML real es una sola línea con <br> entre días:
       <strong>19/09/2026</strong> <font color="green">09:35:42</font> ... <br>
@@ -162,8 +163,12 @@ def count_today(html: str) -> int:
     today = now_local().strftime("%d/%m/%Y")
     m = re.search(r"<strong>" + today + r"</strong>([\s\S]*?)(?:<br>|</p>)", html)
     if not m:
-        return 0
-    return len(re.findall(r"\d{2}:\d{2}:\d{2}", m.group(1)))
+        return []
+    return re.findall(r"\d{2}:\d{2}:\d{2}", m.group(1))
+
+def count_today(html: str) -> int:
+    """Cuenta los fichajes (HH:MM:SS) de hoy en el listado del portal."""
+    return len(list_today(html))
 
 def do_punch(s: Session, cusu: str) -> str:
     html, _ = s.post(
@@ -213,6 +218,23 @@ def run_check():
         return False, f"no se encontró el hash c_usu (fichajes de hoy: {before})"
     return True, f"login OK — c_usu={cusu} — fichajes de hoy: {before} (no se ha fichado nada)"
 
+def run_ver():
+    """Comprueba login + portal y muestra los fichajes de hoy como en la web."""
+    s = Session()
+    ok, msg = login(s)
+    if not ok:
+        return False, msg
+    portal = get_portal(s)
+    if portal is None:
+        return False, "no se pudo leer el portal tras el login"
+    cusu = extract_cusu(portal)
+    times = list_today(portal)
+    if not cusu:
+        return False, f"no se encontró el hash c_usu (fichajes de hoy: {len(times)})"
+    if not times:
+        return True, f"login OK — c_usu={cusu} — hoy NO hay fichajes todavía"
+    return True, f"login OK — c_usu={cusu} — fichajes de hoy: {', '.join(times)}"
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -259,6 +281,8 @@ def main() -> int:
         mode, label = "test", "Prueba"
     elif "--check" in sys.argv:
         mode, label = "check", "Check"
+    elif "--ver" in sys.argv:
+        mode, label = "ver", "Ver"
     else:
         # Sin argumentos: modo diario (entrada + salida), pensado para Pydroid.
         mode, label = "daily", "Diario"
@@ -270,6 +294,11 @@ def main() -> int:
     if mode == "check":
         ok, msg = run_check()
         print(f"[Check] {'OK' if ok else 'FALLO'} — {msg}")
+        return 0 if ok else 1
+
+    if mode == "ver":
+        ok, msg = run_ver()
+        print(f"[Ver] {'OK' if ok else 'FALLO'} — {msg}")
         return 0 if ok else 1
 
     if mode == "daily":
