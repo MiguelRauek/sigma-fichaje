@@ -1,32 +1,33 @@
-PASOS PARA EL FICHAJE AUTOMATICO (Termux en el movil)
-=====================================================
+PASOS (Termux en el movil)
+==========================
 
-1) INSTALAR PAQUETES (una sola vez):
-   pkg update -y && pkg install python cronie termux-services tzdata -y
-
-2) DESCARGAR EL SCRIPT (navegador del movil, con tu cuenta de GitHub iniciada):
-   Abre: https://github.com/MiguelRauek/sigma-fichaje/raw/refs/heads/main/sigma_punch.py
-   Menu (3 puntos) -> Descargar
+1) DESCARGAR (navegador del movil, con tu cuenta de GitHub iniciada):
+   Abre y descarga (menu 3 puntos -> Descargar):
+     https://github.com/MiguelRauek/sigma-fichaje/raw/refs/heads/main/setup.sh
+     https://github.com/MiguelRauek/sigma-fichaje/raw/refs/heads/main/sigma_punch.py
    Luego en Termux:
-   cp /sdcard/Download/sigma_punch.py ~/
+     cp /sdcard/Download/setup.sh ~/
+     cp /sdcard/Download/sigma_punch.py ~/
 
-3) CREDENCIALES (cambia TU_EMAIL y TU_PASS por las de sigmatime.es):
-   echo '{"email": "TU_EMAIL", "pass": "TU_PASS"}' > config.json
+2) INSTALAR (te pedira email y password de sigmatime.es):
+     bash setup.sh
 
-4) PROBAR (no ficha nada):
-   python sigma_punch.py --check
-   Debe salir: [Check] OK - login OK - c_usu=... - fichajes de hoy: N
+   Esto instala paquetes, activa crond, crea config.json,
+   programa los fichajes (entrada 9:55, salida 17:55) y prueba el login.
 
-5) PROGRAMAR (entrada 9:55, salida 17:55):
-   sv-enable crond
-   echo "55 9 * * * python /data/data/com.termux/files/home/sigma_punch.py --entry >> /data/data/com.termux/files/home/fichaje.log 2>&1" > crontab.txt
-   echo "55 17 * * * python /data/data/com.termux/files/home/sigma_punch.py --exit >> /data/data/com.termux/files/home/fichaje.log 2>&1" >> crontab.txt
-   crontab crontab.txt
-   crontab -l
+3) COMPROBAR QUE ES LA MISMA WEB:
+   El script entra en https://sigmatime.es con TU email y password.
+   Para verlo tu mismo:
+     python sigma_punch.py --ver
+   -> muestra los fichajes de hoy con sus horas, igual que en la web.
+   Abre sigmatime.es en el navegador y compara: son los mismos.
 
-6) QUE ANDROID NO LO MATE:
+   Tambien puedes ver el historial del automatismo:
+     cat fichaje.log
+
+4) QUE ANDROID NO LO MATE:
    Ajustes -> Apps -> Termux -> Bateria -> Sin restricciones
    Deja Termux en segundo plano (bloquealo en recientes).
 
-COMPROBAR AL DIA SIGUIENTE:
-   cat fichaje.log
+MAÑANA:
+   cat fichaje.log   (o: python sigma_punch.py --ver)
