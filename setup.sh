@@ -38,10 +38,10 @@ else
   echo "    config.json creado."
 fi
 
-echo "==> 4/4 Programando fichajes (entrada 9:55, salida 17:55)..."
+echo "==> 4/4 Programando fichajes (entrada 9:55, salida 18:00)..."
 D="$PWD"
 echo "55 9 * * * python $D/sigma_punch.py --entry >> $D/fichaje.log 2>&1" > crontab.txt
-echo "55 17 * * * python $D/sigma_punch.py --exit >> $D/fichaje.log 2>&1" >> crontab.txt
+echo "0 18 * * * python $D/sigma_punch.py --exit >> $D/fichaje.log 2>&1" >> crontab.txt
 crontab crontab.txt
 
 echo ""
