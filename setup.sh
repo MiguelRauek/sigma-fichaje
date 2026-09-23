@@ -9,8 +9,8 @@ if curl -fsSL -o sigma_punch.py "$BASE/sigma_punch.py"; then
   echo "    OK"
 elif [ ! -f sigma_punch.py ]; then
   echo ""
-  echo "ERROR: no se pudo descargar solo (el repo es privado)."
-  echo "Hazlo a mano con el navegador del movil (con tu cuenta de GitHub iniciada):"
+  echo "ERROR: no se pudo descargar sigma_punch.py (comprueba la conexion)."
+  echo "Puedes descargarlo a mano con el navegador del movil:"
   echo "  Abre: $BASE/sigma_punch.py"
   echo "  Menu (3 puntos) -> Descargar"
   echo "  Luego: cp /sdcard/Download/sigma_punch.py ~/"
@@ -24,7 +24,13 @@ pkg update -y
 pkg install -y python cronie termux-services
 
 echo "==> 2/4 Activando crond..."
-sv-enable crond
+mkdir -p "$PREFIX/var/service" 2>/dev/null || true
+if sv-enable crond 2>/dev/null; then
+  echo "    crond activado como servicio"
+else
+  echo "    (aviso: no se pudo activar el servicio; se arranca crond directamente)"
+  crond 2>/dev/null || true
+fi
 
 echo "==> 3/4 Credenciales de sigmatime.es"
 if [ -f config.json ]; then
