@@ -21,7 +21,7 @@ fi
 
 echo "==> 1/4 Instalando paquetes (python, cronie, termux-services)..."
 pkg update -y
-pkg install -y python cronie termux-services tzdata
+pkg install -y python cronie termux-services
 
 echo "==> 2/4 Activando crond..."
 sv-enable crond
