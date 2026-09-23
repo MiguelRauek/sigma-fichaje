@@ -16,9 +16,9 @@ pkg install -y python cronie termux-services tzdata
 echo "==> 2/3 Activando crond..."
 sv-enable crond
 
-echo "==> 3/3 Programando fichajes (entrada 9:30, salida 17:55)..."
+echo "==> 3/3 Programando fichajes (entrada 9:55, salida 17:55)..."
 D="$PWD"
-echo "30 9 * * * python $D/sigma_punch.py --entry >> $D/fichaje.log 2>&1" > crontab.txt
+echo "55 9 * * * python $D/sigma_punch.py --entry >> $D/fichaje.log 2>&1" > crontab.txt
 echo "55 17 * * * python $D/sigma_punch.py --exit >> $D/fichaje.log 2>&1" >> crontab.txt
 crontab crontab.txt
 
