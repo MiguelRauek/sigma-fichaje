@@ -2,34 +2,57 @@
 # SigmaFichaje - configuracion automatica para Termux
 set -e
 
-if [ ! -f sigma_punch.py ]; then
-  echo "ERROR: sigma_punch.py no esta en esta carpeta."
-  echo "Descargalo desde GitHub y copialo aqui:"
-  echo "  cp /sdcard/Download/sigma_punch.py ~/"
+BASE="https://github.com/MiguelRauek/sigma-fichaje/raw/refs/heads/main"
+
+echo "==> Descargando sigma_punch.py (version mas reciente)..."
+if curl -fsSL -o sigma_punch.py "$BASE/sigma_punch.py"; then
+  echo "    OK"
+elif [ ! -f sigma_punch.py ]; then
+  echo ""
+  echo "ERROR: no se pudo descargar solo (el repo es privado)."
+  echo "Hazlo a mano con el navegador del movil (con tu cuenta de GitHub iniciada):"
+  echo "  Abre: $BASE/sigma_punch.py"
+  echo "  Menu (3 puntos) -> Descargar"
+  echo "  Luego: cp /sdcard/Download/sigma_punch.py ~/"
   exit 1
+else
+  echo "    (no se pudo descargar; se usa el sigma_punch.py existente)"
 fi
 
-echo "==> 1/3 Instalando paquetes (python, cronie, termux-services)..."
+echo "==> 1/4 Instalando paquetes (python, cronie, termux-services)..."
 pkg update -y
 pkg install -y python cronie termux-services tzdata
 
-echo "==> 2/3 Activando crond..."
+echo "==> 2/4 Activando crond..."
 sv-enable crond
 
-echo "==> 3/3 Programando fichajes (entrada 9:55, salida 17:55)..."
+echo "==> 3/4 Credenciales de sigmatime.es"
+if [ -f config.json ]; then
+  echo "    config.json ya existe, se mantiene."
+else
+  read -p "    Email: " EMAIL
+  read -s -p "    Password: " PASS
+  echo ""
+  echo "{\"email\": \"$EMAIL\", \"pass\": \"$PASS\"}" > config.json
+  chmod 600 config.json
+  echo "    config.json creado."
+fi
+
+echo "==> 4/4 Programando fichajes (entrada 9:55, salida 17:55)..."
 D="$PWD"
 echo "55 9 * * * python $D/sigma_punch.py --entry >> $D/fichaje.log 2>&1" > crontab.txt
 echo "55 17 * * * python $D/sigma_punch.py --exit >> $D/fichaje.log 2>&1" >> crontab.txt
 crontab crontab.txt
 
 echo ""
-echo "LISTO. Ahora haz 2 cosas:"
+echo "==> Probando login (no ficha nada)..."
+python sigma_punch.py --check || true
+
 echo ""
-echo "1) Crea config.json con tus credenciales de sigmatime.es:"
-echo "   echo '{\"email\": \"TU_EMAIL\", \"pass\": \"TU_PASS\"}' > config.json"
+echo "LISTO. Programacion actual:"
+crontab -l
 echo ""
-echo "2) Prueba que el login funciona (no ficha nada):"
-echo "   python sigma_punch.py --check"
-echo ""
-echo "Para ver la programacion: crontab -l"
-echo "Para ver los fichajes: cat fichaje.log"
+echo "Para ver los fichajes de hoy (igual que en la web):"
+echo "  python sigma_punch.py --ver"
+echo "Para ver el historial:"
+echo "  cat fichaje.log"
