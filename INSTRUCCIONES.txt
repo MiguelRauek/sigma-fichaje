@@ -1,19 +1,20 @@
 PASOS (Termux en el movil)
 ==========================
 
-1) DESCARGAR (navegador del movil, con tu cuenta de GitHub iniciada):
-   Abre y descarga (menu 3 puntos -> Descargar):
+1) DESCARGAR setup.sh (navegador del movil, menu 3 puntos -> Descargar):
      https://github.com/MiguelRauek/sigma-fichaje/raw/refs/heads/main/setup.sh
-     https://github.com/MiguelRauek/sigma-fichaje/raw/refs/heads/main/sigma_punch.py
    Luego en Termux:
      cp /sdcard/Download/setup.sh ~/
-     cp /sdcard/Download/sigma_punch.py ~/
+
+   (Opcion rapida, sin navegador: en Termux escribe
+     curl -fsSL -o setup.sh https://github.com/MiguelRauek/sigma-fichaje/raw/refs/heads/main/setup.sh )
 
 2) INSTALAR (te pedira email y password de sigmatime.es):
      bash setup.sh
 
-   Esto instala paquetes, activa crond, crea config.json,
-   programa los fichajes (entrada 9:55, salida 17:55) y prueba el login.
+   Esto descarga sigma_punch.py solo, instala paquetes, activa crond,
+   crea config.json, programa los fichajes (entrada 9:55, salida 17:55)
+   y prueba el login.
 
 3) COMPROBAR QUE ES LA MISMA WEB:
    El script entra en https://sigmatime.es con TU email y password.
