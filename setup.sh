@@ -2,17 +2,21 @@
 # SigmaFichaje - configuracion automatica para Termux
 set -e
 
-echo "==> 1/4 Instalando paquetes (python, cronie, termux-services)..."
+if [ ! -f sigma_punch.py ]; then
+  echo "ERROR: sigma_punch.py no esta en esta carpeta."
+  echo "Descargalo desde GitHub y copialo aqui:"
+  echo "  cp /sdcard/Download/sigma_punch.py ~/"
+  exit 1
+fi
+
+echo "==> 1/3 Instalando paquetes (python, cronie, termux-services)..."
 pkg update -y
 pkg install -y python cronie termux-services tzdata
 
-echo "==> 2/4 Descargando sigma_punch.py..."
-curl -fsSL -O https://raw.githubusercontent.com/MiguelRauek/sigma-fichaje/main/sigma_punch.py
-
-echo "==> 3/4 Activando crond..."
+echo "==> 2/3 Activando crond..."
 sv-enable crond
 
-echo "==> 4/4 Programando fichajes (entrada 9:30, salida 17:55)..."
+echo "==> 3/3 Programando fichajes (entrada 9:30, salida 17:55)..."
 D="$PWD"
 echo "30 9 * * * python $D/sigma_punch.py --entry >> $D/fichaje.log 2>&1" > crontab.txt
 echo "55 17 * * * python $D/sigma_punch.py --exit >> $D/fichaje.log 2>&1" >> crontab.txt
