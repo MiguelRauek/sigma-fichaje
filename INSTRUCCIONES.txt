@@ -13,7 +13,7 @@ PASOS (Termux en el movil)
      bash setup.sh
 
    Esto descarga sigma_punch.py solo, instala paquetes, activa crond,
-   crea config.json, programa los fichajes (entrada 9:55, salida 17:55)
+   crea config.json, programa los fichajes (entrada 9:55, salida 18:00)
    y prueba el login.
 
 3) COMPROBAR QUE ES LA MISMA WEB:
