@@ -16,7 +16,9 @@ Uso:
   python3 sigma_punch.py --ver     # ver los fichajes de hoy (igual que en la web)
 
 Modo diario (Pydroid): sin argumentos ficha la entrada y luego la salida en la
-misma ejecución. Se lanza por la mañana y queda esperando todo el día.
+misma ejecución. Se lanza por la mañana y queda esperando todo el día. Si se
+lanza por la noche (después de las 18:02), espera hasta la entrada del día
+siguiente y ficha entrada y salida de ese día.
 
 Variables de entorno:
   SIGMA_EMAIL, SIGMA_PASS          # credenciales de sigmatime.es (obligatorias)
@@ -98,6 +100,15 @@ def wait_until(target_secs: int, label: str) -> None:
         if seconds_of_day(now) >= target_secs:
             return
         delta = target_secs - seconds_of_day(now)
+        time.sleep(min(delta, 60))
+
+def wait_until_datetime(target_dt: datetime, label: str) -> None:
+    """Espera hasta que la hora local alcance target_dt (en tramos de 60 s)."""
+    while True:
+        now = now_local()
+        if now >= target_dt:
+            return
+        delta = (target_dt - now).total_seconds()
         time.sleep(min(delta, 60))
 
 # ---------------------------------------------------------------------------
@@ -272,6 +283,22 @@ def punch_once(mode: str, label: str) -> int:
             time.sleep(delay)
     return 1
 
+def run_daily() -> int:
+    """Modo diario: entrada + salida en la misma ejecución.
+
+    Si se lanza después de las 18:02 (las ventanas de hoy ya pasaron),
+    espera hasta la entrada del día siguiente y ficha ese día.
+    """
+    now = now_local()
+    if seconds_of_day(now) > 18 * 3600 + 119:
+        tomorrow = now + timedelta(days=1)
+        target_dt = tomorrow.replace(hour=9, minute=55, second=0, microsecond=0)
+        print(f"[Diario] hoy ya pasó; esperando a mañana {target_dt.strftime('%H:%M:%S')} ({TZ})")
+        wait_until_datetime(target_dt, "Diario")
+    rc1 = punch_once("entry", "Entrada")
+    rc2 = punch_once("exit", "Salida")
+    return 0 if (rc1 == 0 and rc2 == 0) else 1
+
 def main() -> int:
     if "--entry" in sys.argv:
         mode, label = "entry", "Entrada"
@@ -302,9 +329,7 @@ def main() -> int:
         return 0 if ok else 1
 
     if mode == "daily":
-        rc1 = punch_once("entry", "Entrada")
-        rc2 = punch_once("exit", "Salida")
-        return 0 if (rc1 == 0 and rc2 == 0) else 1
+        return run_daily()
 
     return punch_once(mode, label)
 
