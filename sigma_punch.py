@@ -10,7 +10,7 @@ GitHub Actions.
 Uso:
   python3 sigma_punch.py           # modo diario: entrada + salida (para Pydroid)
   python3 sigma_punch.py --entry   # entrada: aleatoria entre 9:55 y 10:01
-  python3 sigma_punch.py --exit    # salida:  segundo aleatorio en [18:00:00, 18:01:59]
+  python3 sigma_punch.py --exit    # salida:  segundo aleatorio en [18:00:00, 18:00:59]
   python3 sigma_punch.py --test    # fichar ya (para probar)
   python3 sigma_punch.py --check   # comprobar login y portal SIN fichar nada
   python3 sigma_punch.py --ver     # ver los fichajes de hoy (igual que en la web)
@@ -72,6 +72,23 @@ def _load_credentials():
 
 EMAIL, PASS = _load_credentials()
 
+def load_skip_dates() -> set:
+    """Días en los que NO se ficha: archivo skip_dates.txt junto al script.
+    Una fecha por línea en formato DD/MM/YYYY; las líneas con # son comentarios."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "skip_dates.txt")
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return {line.strip() for line in f
+                    if line.strip() and not line.strip().startswith("#")}
+    except OSError:
+        return set()
+
+SKIP_DATES = load_skip_dates()
+
+def today_skipped() -> bool:
+    """True si hoy está en skip_dates.txt (no hay que fichar)."""
+    return now_local().strftime("%d/%m/%Y") in SKIP_DATES
+
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/126.0 Safari/537.36")
 
@@ -85,13 +102,26 @@ def now_local() -> datetime:
 def seconds_of_day(dt: datetime) -> int:
     return dt.hour * 3600 + dt.minute * 60 + dt.second
 
+# Excepciones puntuales de entrada: {"DD/MM/YYYY": segundos_del_dia}.
+# Los días que no aparecen aquí usan la ventana normal de 9:55:00 a 10:00:59.
+ENTRY_OVERRIDES = {
+    "28/09/2026": 10 * 3600 + 6 * 60 + 7,  # solo este día: 10:06:07
+}
+
+def entry_override() -> int | None:
+    """Hora fija de entrada para hoy si hay excepción, o None."""
+    return ENTRY_OVERRIDES.get(now_local().strftime("%d/%m/%Y"))
+
 def target_entry() -> int:
-    """Aleatoria uniforme en [9:55:00, 10:00:59]. Siempre entre 9:55 y 10:01."""
+    """Aleatoria en [9:55:00, 10:00:59]; si hoy hay excepción, esa hora exacta."""
+    override = entry_override()
+    if override is not None:
+        return override
     return 9 * 3600 + 55 * 60 + random.randint(0, 359)
 
 def target_exit() -> int:
-    """Segundo aleatorio uniforme en [18:00:00, 18:01:59]. Nunca antes de 18:00:00."""
-    return 18 * 3600 + random.randint(0, 119)
+    """Segundo aleatorio uniforme en [18:00:00, 18:00:59]. Nunca antes de 18:00:00."""
+    return 18 * 3600 + random.randint(0, 59)
 
 def wait_until(target_secs: int, label: str) -> None:
     """Espera hasta que la hora local alcance target_secs (en tramos de 60 s)."""
@@ -252,17 +282,25 @@ def run_ver():
 
 def punch_once(mode: str, label: str) -> int:
     """Espera a la ventana del modo y ficha con reintentos. Devuelve 0 si OK."""
+    base = datetime.combine(now_local().date(), datetime.min.time())
+
+    def hhmm(secs: int) -> str:
+        return (base + timedelta(seconds=secs)).strftime("%H:%M:%S")
+
     if mode == "entry":
         target = target_entry()
-        window_end, window_txt = 10 * 3600 + 60, "9:55:00–10:01:00"
+        if entry_override() is not None:
+            # Hora fija: la ventana se ajusta a esa hora (margen de 2 min para reintentos).
+            window_end, window_txt = target + 120, f"fija {hhmm(target)}"
+        else:
+            window_end, window_txt = 10 * 3600 + 60, "9:55:00–10:01:00"
     elif mode == "exit":
         target = target_exit()
-        window_end, window_txt = 18 * 3600 + 119, "18:00:00–18:01:59"
+        window_end, window_txt = 18 * 3600 + 119, "18:00:00–18:00:59"
     else:
         target = seconds_of_day(now_local())
         window_end, window_txt = None, ""
 
-    base = datetime.combine(now_local().date(), datetime.min.time())
     target_dt = base + timedelta(seconds=target)
     print(f"[{label}] objetivo: {target_dt.strftime('%H:%M:%S')} ({TZ})")
 
@@ -317,6 +355,11 @@ def main() -> int:
     if not EMAIL or not PASS:
         print("Faltan las variables SIGMA_EMAIL y SIGMA_PASS")
         return 2
+
+    # Días en skip_dates.txt: no se ficha (solo modos automáticos; --test/--check/--ver siguen funcionando)
+    if mode in ("entry", "exit", "daily") and today_skipped():
+        print(f"[{label}] {now_local().strftime('%d/%m/%Y')} está en skip_dates.txt — NO se ficha hoy")
+        return 0
 
     if mode == "check":
         ok, msg = run_check()
