@@ -105,7 +105,7 @@ def seconds_of_day(dt: datetime) -> int:
 # Excepciones puntuales de entrada: {"DD/MM/YYYY": segundos_del_dia}.
 # Los días que no aparecen aquí usan la ventana normal de 9:55:00 a 10:00:59.
 ENTRY_OVERRIDES = {
-    "28/09/2026": 10 * 3600 + 6 * 60 + 7,  # solo este día: 10:06:07
+    "27/09/2026": 10 * 3600 + 6 * 60 + 7,  # solo este día: 10:06:07
 }
 
 def entry_override() -> int | None:
