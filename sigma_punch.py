@@ -72,6 +72,19 @@ def _load_credentials():
 
 EMAIL, PASS = _load_credentials()
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+LOG_PATH = os.path.join(SCRIPT_DIR, "fichaje.log")
+
+def log(msg: str) -> None:
+    """Escribe en pantalla y en fichaje.log (para ver si arrancó el boot script)."""
+    stamp = datetime.now(TZ).strftime("%Y-%m-%d %H:%M:%S")
+    print(msg)
+    try:
+        with open(LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(f"{stamp} {msg}\n")
+    except OSError:
+        pass
+
 def load_skip_dates() -> set:
     """Días en los que NO se ficha: archivo skip_dates.txt junto al script.
     Una fecha por línea en formato DD/MM/YYYY; las líneas con # son comentarios."""
@@ -287,7 +300,7 @@ def punch_once(mode: str, label: str) -> int:
         window_end, window_txt = None, ""
 
     target_dt = base + timedelta(seconds=target)
-    print(f"[{label}] objetivo: {target_dt.strftime('%H:%M:%S')} ({TZ})")
+    log(f"[{label}] objetivo: {target_dt.strftime('%H:%M:%S')} ({TZ})")
 
     if mode != "test":
         wait_until(target, label)
@@ -296,10 +309,10 @@ def punch_once(mode: str, label: str) -> int:
     delay = 90 if mode == "entry" else 30
     for attempt in range(1, 4):
         if window_end is not None and seconds_of_day(now_local()) > window_end:
-            print(f"[{label}] fuera de la ventana {window_txt}, no se reintenta")
+            log(f"[{label}] fuera de la ventana {window_txt}, no se reintenta")
             break
         ok, msg = run_punch()
-        print(f"[{label}] intento {attempt}: {'OK' if ok else 'FALLO'} — {msg}")
+        log(f"[{label}] intento {attempt}: {'OK' if ok else 'FALLO'} — {msg}")
         if ok:
             return 0
         if attempt < 3:
@@ -315,8 +328,10 @@ def run_daily() -> int:
     now = now_local()
     if seconds_of_day(now) > 18 * 3600 + 119:
         tomorrow = now + timedelta(days=1)
-        target_dt = tomorrow.replace(hour=9, minute=55, second=0, microsecond=0)
-        print(f"[Diario] hoy ya pasó; esperando a mañana {target_dt.strftime('%H:%M:%S')} ({TZ})")
+        target_dt = tomorrow.replace(hour=ENTRY_START // 3600,
+                                     minute=(ENTRY_START % 3600) // 60,
+                                     second=0, microsecond=0)
+        log(f"[Diario] hoy ya pasó; esperando a mañana {target_dt.strftime('%H:%M:%S')} ({TZ})")
         wait_until_datetime(target_dt, "Diario")
     rc1 = punch_once("entry", "Entrada")
     rc2 = punch_once("exit", "Salida")
@@ -337,23 +352,25 @@ def main() -> int:
         # Sin argumentos: modo diario (entrada + salida), pensado para Pydroid.
         mode, label = "daily", "Diario"
 
+    log(f"[{label}] arranque — modo={mode} pid={os.getpid()} argv={' '.join(sys.argv) or '(sin args)'}")
+
     if not EMAIL or not PASS:
-        print("Faltan las variables SIGMA_EMAIL y SIGMA_PASS")
+        log("Faltan las variables SIGMA_EMAIL y SIGMA_PASS")
         return 2
 
     # Días en skip_dates.txt: no se ficha (solo modos automáticos; --test/--check/--ver siguen funcionando)
     if mode in ("entry", "exit", "daily") and today_skipped():
-        print(f"[{label}] {now_local().strftime('%d/%m/%Y')} está en skip_dates.txt — NO se ficha hoy")
+        log(f"[{label}] {now_local().strftime('%d/%m/%Y')} está en skip_dates.txt — NO se ficha hoy")
         return 0
 
     if mode == "check":
         ok, msg = run_check()
-        print(f"[Check] {'OK' if ok else 'FALLO'} — {msg}")
+        log(f"[Check] {'OK' if ok else 'FALLO'} — {msg}")
         return 0 if ok else 1
 
     if mode == "ver":
         ok, msg = run_ver()
-        print(f"[Ver] {'OK' if ok else 'FALLO'} — {msg}")
+        log(f"[Ver] {'OK' if ok else 'FALLO'} — {msg}")
         return 0 if ok else 1
 
     if mode == "daily":
