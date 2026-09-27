@@ -98,7 +98,7 @@ const STEPS = [
     cmds:['python sigma_punch.py --check']}
 ];
 
-const FIN = `function render(){
+function render(){
   const app = document.getElementById('app');
   app.innerHTML = '';
   STEPS.forEach(s => {
