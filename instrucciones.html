@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fichaje · Pasos para el móvil</title>
+<style>
+  :root{
+    --bg:#0f1115; --card:#171a21; --line:#272b35; --txt:#e8eaf0;
+    --muted:#98a0b0; --acc:#4ade80; --acc-dim:#16a34a; --warn:#fbbf24; --err:#f87171;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; padding:16px 14px 60px; background:var(--bg); color:var(--txt);
+    font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    -webkit-text-size-adjust:100%;
+  }
+  header{
+    background:linear-gradient(160deg,#1b2430,#171a21);
+    border:1px solid var(--line); border-radius:16px; padding:18px; margin-bottom:8px;
+  }
+  h1{margin:0 0 6px; font-size:20px; letter-spacing:-.2px}
+  .sub{color:var(--muted); font-size:14px; margin:0}
+  .grid{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:14px}
+  .cell{background:#0d1015; border:1px solid var(--line); border-radius:10px; padding:10px 12px}
+  .cell b{display:block; font-size:19px; color:var(--acc)}
+  .cell span{font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.4px}
+  .step{background:var(--card); border:1px solid var(--line); border-radius:14px;
+        padding:16px; margin:14px 0}
+  .hd{display:flex; gap:10px; align-items:center; margin-bottom:4px}
+  .n{flex:0 0 28px; height:28px; border-radius:50%; background:var(--acc); color:#06210f;
+     font-weight:800; font-size:15px; display:grid; place-items:center}
+  .hd h2{margin:0; font-size:17px}
+  .note{color:var(--muted); font-size:14px; margin:6px 0 12px}
+  .cmd{position:relative; background:#0b0e13; border:1px solid var(--line);
+       border-radius:10px; margin:10px 0; overflow:hidden}
+  .cmd pre{margin:0; padding:12px 13px; white-space:pre-wrap; word-break:break-all;
+           font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace; color:#cfe3ff;
+           padding-right:96px}
+  button.copy{
+    position:absolute; top:8px; right:8px; padding:8px 12px; min-height:38px;
+    border:0; border-radius:8px; background:var(--acc-dim); color:#fff;
+    font-size:13px; font-weight:700; cursor:pointer; font-family:inherit;
+  }
+  button.copy:active{transform:scale(.96)}
+  button.copy.done{background:var(--acc); color:#06210f}
+  .tip{background:#1a1f28; border-left:3px solid var(--warn); padding:10px 12px;
+       border-radius:0 8px 8px 0; font-size:14px; color:#e6d7a8; margin:10px 0}
+  .ok{background:#0f1d16; border-left:3px solid var(--acc); padding:10px 12px;
+      border-radius:0 8px 8px 0; font-size:14px; color:#b7e8c9; margin:10px 0}
+  .tag{display:inline-block; background:#0b0e13; border:1px solid var(--line);
+       color:var(--muted); border-radius:99px; padding:2px 9px; font-size:12px; margin-right:5px}
+  footer{color:var(--muted); font-size:13px; text-align:center; margin-top:22px}
+  h2.sep{font-size:14px; text-transform:uppercase; letter-spacing:1px; color:var(--muted);
+         margin:26px 0 4px; border-top:1px solid var(--line); padding-top:18px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📋 Fichaje · puesta en marcha</h1>
+  <p class="sub">Pulsa cada botón para copiar y pega en <b>Termux</b>.</p>
+  <div class="grid">
+    <div class="cell"><span>Entrada</span><b>10:05–10:08</b></div>
+    <div class="cell"><span>Salida</span><b>18:00</b></div>
+    <div class="cell"><span>Hasta el</span><b>27/10/2026</b></div>
+    <div class="cell"><span>Tu Smartphone</span><b>07:30</b></div>
+  </div>
+</header>
+
+<div id="app"></div>
+
+<footer>
+  <span class="tag">ENTRADA 10:05:00→10:08:59</span><span class="tag">SALIDA 18:00:00→18:00:59</span><br><br>
+  Modo permanente: se relanza solo cada día y se apaga el 27/10/2026.
+</footer>
+
+<script>
+const STEPS = [
+  { n:1, t:"Bajar el script nuevo", note:"Hazlo en Termux, en el móvil. Pega y dale a Enter.",
+    cmds:[
+      'curl -fsSL -o sigma_punch.py "https://raw.githubusercontent.com/MiguelRauek/sigma-fichaje/main/sigma_punch.py?x=8"'
+    ]},
+  { n:2, t:"Comprobar que es la versión nueva", note:"Debe imprimir 1.",
+    cmds:['grep -c "27/10/2026" sigma_punch.py']},
+  { n:3, t:"Instalar Termux:Boot", note:"⚠️ Imprescindible: ÁBRELA UNA VEZ al instalarla y ciérrala. Si no, Android no la ejecuta nunca.",
+    cmds:['https://f-droid.org/packages/com.termux.boot/']},
+  { n:4, t:"Permisos (en Ajustes, no es un comando)", note:"Ajustes › Apps › <b>Termux:Boot</b> → Autoarranque ON + Batería «Sin restricciones». Luego igual para <b>Termux</b>."},
+  { n:5, t:"Crear el arranque automático", note:"Tres comandos. El primero crea la carpeta.",
+    cmds:[
+      'mkdir -p ~/.termux/boot',
+      "printf '#!/data/data/com.termux/files/usr/bin/bash\\ncd $HOME\\nexec python sigma_punch.py --forever >> fichaje_boot.log 2>&1\\n' > ~/.termux/boot/sigma.sh",
+      'chmod +x ~/.termux/boot/sigma.sh'
+    ]},
+  { n:6, t:"Verificar que quedó bien", note:"Debe mostrar la cabecera bash y la línea con --forever.",
+    cmds:['cat ~/.termux/boot/sigma.sh']},
+  { n:7, t:"Comprobar que el script funciona", note:"Verás «objetivo: 10:0X:XX». Se queda esperando: déjalo ahí.",
+    cmds:['python sigma_punch.py --check']}
+];
+
+const FIN = `function render(){
+  const app = document.getElementById('app');
+  app.innerHTML = '';
+  STEPS.forEach(s => {
+    const d = document.createElement('div'); d.className = 'step';
+    d.innerHTML = '<div class="hd"><div class="n">'+s.n+'</div><h2>'+s.t+'</h2></div>'
+      + (s.note ? '<p class="note">'+s.note+'</p>' : '');
+    (s.cmds||[]).forEach(c => {
+      const box = document.createElement('div'); box.className = 'cmd';
+      const pre = document.createElement('pre'); pre.textContent = c;
+      const b = document.createElement('button'); b.className='copy'; b.textContent='Copiar';
+      b.onclick = () => copy(c, b);
+      box.appendChild(pre); box.appendChild(b);
+      d.appendChild(box);
+    });
+    app.appendChild(d);
+  });
+  const f = document.createElement('div'); f.className='step';
+  f.innerHTML = '<div class="hd"><div class="n" style="background:var(--acc)">✓</div><h2>Ya está</h2></div>'
+    + '<div class="ok">El móvil se apaga a las 00:30 y se enciende a las 07:30. A partir de ahí el script '
+    + 'arranca solo, ficha todos los días y se apaga el <b>27/10/2026</b>. No tienes que hacer nada más.</div>'
+    + '<div class="tip">Si un día quieres comprobarlo: <b>cat fichaje.log</b> · Para pausar un día, '
+    + 'añade la fecha (DD/MM/AAAA) en <b>skip_dates.txt</b>.</div>';
+  app.appendChild(f);
+}
+
+function copy(text, btn){
+  const done = () => {
+    const o = btn.textContent; btn.textContent = '¡Copiado!'; btn.classList.add('done');
+    setTimeout(() => { btn.textContent = o; btn.classList.remove('done'); }, 1400);
+  };
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(done).catch(() => legacy(text, done));
+  } else legacy(text, done);
+}
+
+function legacy(text, done){
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.setAttribute('readonly',''); 
+  ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+  document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, text.length);
+  try { document.execCommand('copy'); done(); } catch(e) {}
+  document.body.removeChild(ta);
+}
+
+render();
+</script>
+</body>
+</html>
