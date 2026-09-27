@@ -9,7 +9,7 @@ GitHub Actions.
 
 Uso:
   python3 sigma_punch.py           # modo diario: entrada + salida (para Pydroid)
-  python3 sigma_punch.py --entry   # entrada: aleatoria entre 9:55 y 10:01
+  python3 sigma_punch.py --entry   # entrada: aleatoria entre 10:05 y 10:08
   python3 sigma_punch.py --exit    # salida:  segundo aleatorio en [18:00:00, 18:00:59]
   python3 sigma_punch.py --test    # fichar ya (para probar)
   python3 sigma_punch.py --check   # comprobar login y portal SIN fichar nada
@@ -102,22 +102,14 @@ def now_local() -> datetime:
 def seconds_of_day(dt: datetime) -> int:
     return dt.hour * 3600 + dt.minute * 60 + dt.second
 
-# Excepciones puntuales de entrada: {"DD/MM/YYYY": segundos_del_dia}.
-# Los días que no aparecen aquí usan la ventana normal de 9:55:00 a 10:00:59.
-ENTRY_OVERRIDES = {
-    "27/09/2026": 10 * 3600 + 6 * 60 + 7,  # solo este día: 10:06:07
-}
-
-def entry_override() -> int | None:
-    """Hora fija de entrada para hoy si hay excepción, o None."""
-    return ENTRY_OVERRIDES.get(now_local().strftime("%d/%m/%Y"))
+# Ventana de entrada: 10:05:00–10:08:59. Se cambió el 27/09/2026 porque el
+# nuevo hotel tiene otro horario de bus y ya no se puede llegar a las 9:55.
+ENTRY_START = 10 * 3600 + 5 * 60        # 10:05:00
+ENTRY_SPAN = 239                        # 3 min 59 s -> hasta 10:08:59
 
 def target_entry() -> int:
-    """Aleatoria en [9:55:00, 10:00:59]; si hoy hay excepción, esa hora exacta."""
-    override = entry_override()
-    if override is not None:
-        return override
-    return 9 * 3600 + 55 * 60 + random.randint(0, 359)
+    """Segundo aleatorio uniforme en [10:05:00, 10:08:59]."""
+    return ENTRY_START + random.randint(0, ENTRY_SPAN)
 
 def target_exit() -> int:
     """Segundo aleatorio uniforme en [18:00:00, 18:00:59]. Nunca antes de 18:00:00."""
@@ -284,16 +276,9 @@ def punch_once(mode: str, label: str) -> int:
     """Espera a la ventana del modo y ficha con reintentos. Devuelve 0 si OK."""
     base = datetime.combine(now_local().date(), datetime.min.time())
 
-    def hhmm(secs: int) -> str:
-        return (base + timedelta(seconds=secs)).strftime("%H:%M:%S")
-
     if mode == "entry":
         target = target_entry()
-        if entry_override() is not None:
-            # Hora fija: la ventana se ajusta a esa hora (margen de 2 min para reintentos).
-            window_end, window_txt = target + 120, f"fija {hhmm(target)}"
-        else:
-            window_end, window_txt = 10 * 3600 + 60, "9:55:00–10:01:00"
+        window_end, window_txt = ENTRY_START + ENTRY_SPAN + 60, "10:05:00–10:09:59"
     elif mode == "exit":
         target = target_exit()
         window_end, window_txt = 18 * 3600 + 119, "18:00:00–18:00:59"
