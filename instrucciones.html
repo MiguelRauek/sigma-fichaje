@@ -50,6 +50,13 @@
       border-radius:0 8px 8px 0; font-size:14px; color:#b7e8c9; margin:10px 0}
   .tag{display:inline-block; background:#0b0e13; border:1px solid var(--line);
        color:var(--muted); border-radius:99px; padding:2px 9px; font-size:12px; margin-right:5px}
+  .cmd.link{padding:10px}
+  a.openlink{
+    display:block; text-align:center; padding:13px 14px; min-height:48px;
+    background:var(--acc-dim); color:#fff; text-decoration:none; font-weight:700;
+    font-size:15px; border-radius:9px;
+  }
+  a.openlink:active{transform:scale(.985)}
   footer{color:var(--muted); font-size:13px; text-align:center; margin-top:22px}
   h2.sep{font-size:14px; text-transform:uppercase; letter-spacing:1px; color:var(--muted);
          margin:26px 0 4px; border-top:1px solid var(--line); padding-top:18px}
@@ -83,8 +90,8 @@ const STEPS = [
     ]},
   { n:2, t:"Comprobar que es la versión nueva", note:"Debe imprimir 1.",
     cmds:['grep -c "27/10/2026" sigma_punch.py']},
-  { n:3, t:"Instalar Termux:Boot", note:"⚠️ Imprescindible: ÁBRELA UNA VEZ al instalarla y ciérrala. Si no, Android no la ejecuta nunca.",
-    cmds:['https://f-droid.org/packages/com.termux.boot/']},
+  { n:3, t:"Instalar Termux:Boot", note:"Instálala desde el <b>navegador del móvil</b> (Chrome), no desde Termux. ⚠️ Imprescindible: ábrela una vez al instalarla y ciérrala, si no Android no la ejecuta nunca.",
+    links:[{txt:"Abrir Termux:Boot en F-Droid ↗", url:"https://f-droid.org/packages/com.termux.boot/"}]},
   { n:4, t:"Permisos (en Ajustes, no es un comando)", note:"Ajustes › Apps › <b>Termux:Boot</b> → Autoarranque ON + Batería «Sin restricciones». Luego igual para <b>Termux</b>."},
   { n:5, t:"Crear el arranque automático", note:"Tres comandos. El primero crea la carpeta.",
     cmds:[
@@ -111,6 +118,14 @@ function render(){
       const b = document.createElement('button'); b.className='copy'; b.textContent='Copiar';
       b.onclick = () => copy(c, b);
       box.appendChild(pre); box.appendChild(b);
+      d.appendChild(box);
+    });
+    (s.links||[]).forEach(l => {
+      const box = document.createElement('div'); box.className = 'cmd link';
+      const a = document.createElement('a');
+      a.className = 'openlink'; a.textContent = l.txt; a.href = l.url;
+      a.target = '_blank'; a.rel = 'noopener noreferrer';
+      box.appendChild(a);
       d.appendChild(box);
     });
     app.appendChild(d);
