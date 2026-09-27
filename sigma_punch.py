@@ -74,6 +74,7 @@ EMAIL, PASS = _load_credentials()
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 LOG_PATH = os.path.join(SCRIPT_DIR, "fichaje.log")
+LOCK_PATH = os.path.join(SCRIPT_DIR, "fichaje.lock")
 
 def log(msg: str) -> None:
     """Escribe en pantalla y en fichaje.log (para ver si arrancó el boot script)."""
@@ -337,6 +338,44 @@ def run_daily() -> int:
     rc2 = punch_once("exit", "Salida")
     return 0 if (rc1 == 0 and rc2 == 0) else 1
 
+def _lock_holder() -> int:
+    """PID del proceso que ya está fichando, o 0 si no hay ninguno.
+
+    Evita que el arranque automático (07:30) y una ejecución manual fichen
+    los dos a la vez. Si el fichero existe pero el proceso ya no está vivo,
+    el cerrojo está viejo y se puede reutilizar.
+    """
+    try:
+        with open(LOCK_PATH, "r", encoding="utf-8") as f:
+            pid = int(f.read().strip() or 0)
+    except (OSError, ValueError):
+        return 0
+    if pid <= 0 or pid == os.getpid():
+        return 0
+    try:
+        os.kill(pid, 0)  # solo comprueba si existe, no señal
+        return pid
+    except OSError:
+        return 0
+
+def acquire_lock() -> bool:
+    """True si este proceso se queda con el cerrojo; False si ya hay otro."""
+    pid = _lock_holder()
+    if pid:
+        return False
+    try:
+        with open(LOCK_PATH, "w", encoding="utf-8") as f:
+            f.write(str(os.getpid()))
+    except OSError:
+        return True  # si no se puede escribir, no bloquear el fichaje
+    return True
+
+def release_lock() -> None:
+    try:
+        os.remove(LOCK_PATH)
+    except OSError:
+        pass
+
 def main() -> int:
     if "--entry" in sys.argv:
         mode, label = "entry", "Entrada"
@@ -358,25 +397,40 @@ def main() -> int:
         log("Faltan las variables SIGMA_EMAIL y SIGMA_PASS")
         return 2
 
-    # Días en skip_dates.txt: no se ficha (solo modos automáticos; --test/--check/--ver siguen funcionando)
-    if mode in ("entry", "exit", "daily") and today_skipped():
-        log(f"[{label}] {now_local().strftime('%d/%m/%Y')} está en skip_dates.txt — NO se ficha hoy")
-        return 0
+    # Cerrojo: solo un proceso puede fichar a la vez (autoarranque + manual).
+    # --test/--check/--ver no lo usan: son pruebas y no deben verse bloqueados.
+    bloqueado = False
+    if mode in ("entry", "exit", "daily"):
+        if not acquire_lock():
+            pid = _lock_holder()
+            log(f"[{label}] otro proceso ya está fichando (pid {pid}) — no se duplica, saliendo")
+            return 0
+        bloqueado = True
+        log(f"[{label}] cerrojo tomado (pid {os.getpid()})")
 
-    if mode == "check":
-        ok, msg = run_check()
-        log(f"[Check] {'OK' if ok else 'FALLO'} — {msg}")
-        return 0 if ok else 1
+    try:
+        # Días en skip_dates.txt: no se ficha (solo modos automáticos; --test/--check/--ver siguen funcionando)
+        if mode in ("entry", "exit", "daily") and today_skipped():
+            log(f"[{label}] {now_local().strftime('%d/%m/%Y')} está en skip_dates.txt — NO se ficha hoy")
+            return 0
 
-    if mode == "ver":
-        ok, msg = run_ver()
-        log(f"[Ver] {'OK' if ok else 'FALLO'} — {msg}")
-        return 0 if ok else 1
+        if mode == "check":
+            ok, msg = run_check()
+            log(f"[Check] {'OK' if ok else 'FALLO'} — {msg}")
+            return 0 if ok else 1
 
-    if mode == "daily":
-        return run_daily()
+        if mode == "ver":
+            ok, msg = run_ver()
+            log(f"[Ver] {'OK' if ok else 'FALLO'} — {msg}")
+            return 0 if ok else 1
 
-    return punch_once(mode, label)
+        if mode == "daily":
+            return run_daily()
+
+        return punch_once(mode, label)
+    finally:
+        if bloqueado:
+            release_lock()
 
 if __name__ == "__main__":
     sys.exit(main())
