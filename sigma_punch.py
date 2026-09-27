@@ -76,6 +76,10 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 LOG_PATH = os.path.join(SCRIPT_DIR, "fichaje.log")
 LOCK_PATH = os.path.join(SCRIPT_DIR, "fichaje.lock")
 
+# Último día del modo permanente (DD/MM/AAAA). Vacío = sin límite.
+# Poner "" para que no termine nunca, o una fecha para que se apague solo.
+LAST_DAY = "27/10/2026"
+
 def log(msg: str) -> None:
     """Escribe en pantalla y en fichaje.log (para ver si arrancó el boot script)."""
     stamp = datetime.now(TZ).strftime("%Y-%m-%d %H:%M:%S")
@@ -320,6 +324,34 @@ def punch_once(mode: str, label: str) -> int:
             time.sleep(delay)
     return 1
 
+def run_forever() -> int:
+    """Modo permanente: ficha entrada y salida todos los días, solo.
+
+    Se relanza a sí mismo cada día hasta LAST_DAY (inclusive) y ahí se apaga
+    solo. Pensado para arrancar desde el autoarranque del móvil: una sola vez
+    y se mantiene solo sin tener que hacer nada cada día.
+    """
+    log(f"[Permanente] arrancar — último día {LAST_DAY}")
+    while True:
+        hoy = now_local().strftime("%d/%m/%Y")
+        if LAST_DAY and hoy > LAST_DAY:
+            log(f"[Permanente] {hoy} es posterior a {LAST_DAY}; fin del periodo, saliendo")
+            return 0
+        if not LAST_DAY or hoy <= LAST_DAY:
+            if today_skipped():
+                log(f"[Permanente] {hoy} está en skip_dates.txt — no se ficha hoy")
+            else:
+                run_daily()
+        # Dorme hasta la entrada del día siguiente.
+        manana = now_local() + timedelta(days=1)
+        objetivo = manana.replace(hour=ENTRY_START // 3600,
+                                  minute=(ENTRY_START % 3600) // 60,
+                                  second=0, microsecond=0)
+        segundos = (objetivo - now_local()).total_seconds()
+        if segundos > 0:
+            log(f"[Permanente] durmiendo hasta {objetivo.strftime('%d/%m %H:%M')}")
+            time.sleep(segundos)
+
 def run_daily() -> int:
     """Modo diario: entrada + salida en la misma ejecución.
 
@@ -387,6 +419,9 @@ def main() -> int:
         mode, label = "check", "Check"
     elif "--ver" in sys.argv:
         mode, label = "ver", "Ver"
+    elif "--forever" in sys.argv:
+        # Modo permanente: todos los días hasta LAST_DAY, sin intervención.
+        mode, label = "forever", "Permanente"
     else:
         # Sin argumentos: modo diario (entrada + salida), pensado para Pydroid.
         mode, label = "daily", "Diario"
@@ -399,8 +434,10 @@ def main() -> int:
 
     # Cerrojo: solo un proceso puede fichar a la vez (autoarranque + manual).
     # --test/--check/--ver no lo usan: son pruebas y no deben verse bloqueados.
+    # --forever lo toma una vez y lo mantiene toda su vida, porque es el
+    # proceso que ficha todos los días: si lo soltara, otro podría duplicar.
     bloqueado = False
-    if mode in ("entry", "exit", "daily"):
+    if mode in ("entry", "exit", "daily", "forever"):
         if not acquire_lock():
             pid = _lock_holder()
             log(f"[{label}] otro proceso ya está fichando (pid {pid}) — no se duplica, saliendo")
@@ -423,6 +460,9 @@ def main() -> int:
             ok, msg = run_ver()
             log(f"[Ver] {'OK' if ok else 'FALLO'} — {msg}")
             return 0 if ok else 1
+
+        if mode == "forever":
+            return run_forever()
 
         if mode == "daily":
             return run_daily()
