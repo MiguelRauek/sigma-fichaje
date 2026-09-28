@@ -93,11 +93,9 @@ const STEPS = [
   { n:3, t:"Instalar Termux:Boot", note:"Instálala desde el <b>navegador del móvil</b> (Chrome), no desde Termux. ⚠️ Imprescindible: ábrela una vez al instalarla y ciérrala, si no Android no la ejecuta nunca.",
     links:[{txt:"Abrir Termux:Boot en F-Droid ↗", url:"https://f-droid.org/packages/com.termux.boot/"}]},
   { n:4, t:"Permisos (en Ajustes, no es un comando)", note:"Ajustes › Apps › <b>Termux:Boot</b> → Autoarranque ON + Batería «Sin restricciones». Luego igual para <b>Termux</b>."},
-  { n:5, t:"Crear el arranque automático", note:"Tres comandos. El primero crea la carpeta.",
+  { n:5, t:"Crear el arranque automático", note:"⚠️ Pégalo en <b>Termux</b> (icono negro <b>&gt;_</b>), NO en Pydroid. Es un solo comando que lo hace todo.",
     cmds:[
-      'mkdir -p ~/.termux/boot',
-      "printf '#!/data/data/com.termux/files/usr/bin/bash\\ncd $HOME\\nexec python sigma_punch.py --forever >> fichaje_boot.log 2>&1\\n' > ~/.termux/boot/sigma.sh",
-      'chmod +x ~/.termux/boot/sigma.sh'
+      'mkdir -p ~/.termux/boot && printf \'#!/data/data/com.termux/files/usr/bin/bash\\ncd $HOME\\nexec python sigma_punch.py --forever >> fichaje_boot.log 2>&1\\n\' > ~/.termux/boot/sigma.sh && chmod +x ~/.termux/boot/sigma.sh && echo "== PASO 5 HECHO ==" && cat ~/.termux/boot/sigma.sh'
     ]},
   { n:6, t:"Verificar que quedó bien", note:"Debe mostrar la cabecera bash y la línea con --forever.",
     cmds:['cat ~/.termux/boot/sigma.sh']},
