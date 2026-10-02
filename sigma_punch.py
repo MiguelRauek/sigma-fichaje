@@ -78,7 +78,7 @@ LOCK_PATH = os.path.join(SCRIPT_DIR, "fichaje.lock")
 
 # Último día del modo permanente (DD/MM/AAAA). Vacío = sin límite.
 # Poner "" para que no termine nunca, o una fecha para que se apague solo.
-LAST_DAY = "27/10/2026"
+LAST_DAY = "25/10/2026"
 
 def log(msg: str) -> None:
     """Escribe en pantalla y en fichaje.log (para ver si arrancó el boot script)."""
@@ -236,23 +236,33 @@ def do_punch(s: Session, cusu: str) -> str:
     return html
 
 def run_punch():
-    s = Session()
-    ok, msg = login(s)
-    if not ok:
-        return False, msg
-    portal = get_portal(s)
-    if portal is None:
-        return False, "no se pudo leer el portal tras el login"
-    before = count_today(portal)
-    cusu = extract_cusu(portal)
-    if not cusu:
-        return False, f"no se encontró el hash c_usu (fichajes de hoy: {before})"
-    do_punch(s, cusu)
-    portal2 = get_portal(s)
-    after = count_today(portal2) if portal2 is not None else -1
-    if after == before + 1:
-        return True, f"fichaje registrado (hoy: {before} → {after})"
-    return False, f"el fichaje no se reflejó (antes={before}, después={after})"
+    """Intenta fichar una vez. NUNCA lanza excepciones.
+
+    Un corte de internet (URLError/DNS) o cualquier fallo inesperado se
+    devuelve como (False, motivo) para que punch_once reintente. Antes un
+    error de red tumbaba el proceso entero y se perdian los dos fichajes
+    del dia.
+    """
+    try:
+        s = Session()
+        ok, msg = login(s)
+        if not ok:
+            return False, msg
+        portal = get_portal(s)
+        if portal is None:
+            return False, "no se pudo leer el portal tras el login"
+        before = count_today(portal)
+        cusu = extract_cusu(portal)
+        if not cusu:
+            return False, f"no se encontró el hash c_usu (fichajes de hoy: {before})"
+        do_punch(s, cusu)
+        portal2 = get_portal(s)
+        after = count_today(portal2) if portal2 is not None else -1
+        if after == before + 1:
+            return True, f"fichaje registrado (hoy: {before} → {after})"
+        return False, f"el fichaje no se reflejó (antes={before}, después={after})"
+    except Exception as e:          # red, DNS, portal caido, HTML raro...
+        return False, f"fallo de conexión ({type(e).__name__}: {e})"
 
 def run_check():
     """Comprueba login + portal y cuenta los fichajes de hoy, SIN fichar."""
@@ -296,10 +306,10 @@ def punch_once(mode: str, label: str) -> int:
 
     if mode == "entry":
         target = target_entry()
-        window_end, window_txt = ENTRY_START + ENTRY_SPAN + 60, "10:05:00–10:09:59"
+        window_end, window_txt = ENTRY_START + ENTRY_SPAN, "10:05:00–10:08:59"
     elif mode == "exit":
         target = target_exit()
-        window_end, window_txt = 18 * 3600 + 119, "18:00:00–18:00:59"
+        window_end, window_txt = 18 * 3600 + 59, "18:00:00–18:00:59"
     else:
         target = seconds_of_day(now_local())
         window_end, window_txt = None, ""
@@ -310,9 +320,12 @@ def punch_once(mode: str, label: str) -> int:
     if mode != "test":
         wait_until(target, label)
 
-    # Reintentos: entrada cada 90 s; salida cada 30 s; nunca fuera de la ventana.
-    delay = 90 if mode == "entry" else 30
-    for attempt in range(1, 4):
+    # Reintentos. Con internet intermitente (el fallo del 02/10/2026 fue
+    # justo eso: DNS caido) hay que insistir varias veces y muy seguido.
+    #   entrada: 6 intentos cada 45 s -> cubre toda la ventana
+    #   salida : 4 intentos cada 15 s -> cubre toda la ventana
+    delay, intentos = (45, 6) if mode == "entry" else (15, 4)
+    for attempt in range(1, intentos + 1):
         if window_end is not None and seconds_of_day(now_local()) > window_end:
             log(f"[{label}] fuera de la ventana {window_txt}, no se reintenta")
             break
@@ -320,7 +333,7 @@ def punch_once(mode: str, label: str) -> int:
         log(f"[{label}] intento {attempt}: {'OK' if ok else 'FALLO'} — {msg}")
         if ok:
             return 0
-        if attempt < 3:
+        if attempt < intentos:
             time.sleep(delay)
     return 1
 
@@ -341,7 +354,14 @@ def run_forever() -> int:
             if today_skipped():
                 log(f"[Permanente] {hoy} está en skip_dates.txt — no se ficha hoy")
             else:
-                run_daily()
+                # Red de seguridad: si run_daily() lance cualquier excepcion
+                # inesperada, el modo --forever sigue vivo para manana.
+                try:
+                    run_daily()
+                except Exception as e:
+                    log(f"[Permanente] ERROR inesperado: {type(e).__name__}: {e} "
+                        f"— se continua, mañana se vuelve a intentar")
+                    time.sleep(60)
         # Dorme hasta la entrada del día siguiente.
         manana = now_local() + timedelta(days=1)
         objetivo = manana.replace(hour=ENTRY_START // 3600,
