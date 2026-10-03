@@ -7,11 +7,26 @@ https://miguelrauek.github.io/sigma-fichaje/instrucciones.html
 Ábrela en el navegador del móvil: cada paso tiene su botón de copiar.
 
 
+HORARIOS
+--------
+   Entrada:  entre 10:00:00 y 10:02:59  (segundo al azar)
+   Salida :  entre 18:00:00 y 18:02:59  (segundo al azar)
+   Hasta el 25/10/2026, incluido. Ese día ficha y se apaga.
+
+
 1. Instalar Termux y Termux:API (desde F-Droid, no desde la Play Store).
+   La app Termux:API es obligatoria para la alarma.
 
 2. Instalar Termux:Boot (también desde F-Droid).
 
-3. Crear config.json con tus credenciales de sigmatime.es:
+3. Instalar el paquete de comandos DENTRO de Termux (imprescindible):
+
+   pkg install termux-api
+
+   Trae el reloj que programa los fichajes y la alarma. Si falta esto,
+   el programa NO ficha y no suena la alarma.
+
+4. Crear config.json con tus credenciales de sigmatime.es:
 
    nano ~/config.json
 
@@ -22,33 +37,35 @@ https://miguelrauek.github.io/sigma-fichaje/instrucciones.html
 
    Guardar con CTRL+O y salir con CTRL+X.
 
-4. Permisos en el móvil (Termux y Termux:Boot):
+5. Permisos en el móvil (Termux y Termux:Boot):
    - Batería: Sin restricciones
    - Ejecución en 2º plano: Permitir
    - Inicio automático: Permitir
    - Notificaciones: activadas
 
-5. Descargar el programa:
+6. Descargar los tres ficheros:
 
    curl -fsSL -o sigma_punch.py https://raw.githubusercontent.com/MiguelRauek/sigma-fichaje/main/sigma_punch.py
+   curl -fsSL -o reloj.sh        https://raw.githubusercontent.com/MiguelRauek/sigma-fichaje/main/reloj.sh
 
-6. Crear el arranque automático:
+7. Crear el arranque automático:
 
-   mkdir -p ~/.termux/boot
-   nano ~/.termux/boot/sigma.sh
+   mkdir -p ~/bin ~/.termux/boot
+   mv reloj.sh ~/bin/reloj.sh
+   curl -fsSL -o ~/.termux/boot/sigma.sh https://raw.githubusercontent.com/MiguelRauek/sigma-fichaje/main/sigma_boot.sh
+   chmod +x ~/bin/reloj.sh ~/.termux/boot/sigma.sh
 
-   #!/data/data/com.termux/files/usr/bin/bash
-   cd $HOME
-   for i in 1 2 3 4 5 6; do termux-wake-lock && break; sleep 10; done
-   exec python sigma_punch.py --forever >> fichaje_boot.log 2>&1
-
-   CTRL+O para guardar, CTRL+X para salir.
-
-7. Reiniciar el móvil. A partir de ahí ficha solo hasta el 25/10/2026.
+8. Reiniciar el móvil. El arranque solo programa el reloj y se apaga:
+   no mantiene el móvil despierto. El candado se toma únicamente durante
+   el fichaje, unos minutos al día.
 
 
 COMPROBAR QUE ESTÁ FUNCIONANDO
 ------------------------------
+
+Ver que el reloj quedó programado:
+
+  termux-job-scheduler --list
 
 Ver el log de hoy:
 
@@ -56,6 +73,16 @@ Ver el log de hoy:
 
 Lo bueno es ver líneas "intento" y luego "OK".
 
-Comprobar solo el portal, sin fichar:
+Ver los fichajes que hay ahora mismo en la web, sin fichar nada:
 
-  python sigma_punch.py --check
+  python sigma_punch.py --ver
+
+
+SI SUENA LA ALARMA
+------------------
+
+Suena cuando el fichaje falla por falta de internet: el tono de alarma del
+móvil en bucle, dos veces, y un cartel en pantalla. Es para enterarte el
+mismo día, no al siguiente.
+
+Si el fallo es de la web y no de internet, solo sale el cartel, sin ruido.
