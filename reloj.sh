@@ -6,6 +6,10 @@ cd $HOME
 H=$(date +%H%M)
 H=$((10#$H))          # quita el cero inicial (0945 -> 945)
 
+# Latido: una linea cada 15 minutos. Sirve para comprobar desde el PC que
+# el reloj sigue vivo, sin depender de "termux-job-scheduler --list".
+echo "$(date '+%d/%m %H:%M:%S') reloj activo" >> fichaje_boot.log
+
 case "$H" in
   094[5-9]|095[0-9]|100[0-2]) M=--entry ;;
   174[5-9]|175[0-9]|180[0-2]) M=--exit  ;;
