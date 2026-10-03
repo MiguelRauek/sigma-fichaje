@@ -185,18 +185,23 @@ class Session:
 # ---------------------------------------------------------------------------
 
 def login(s: Session):
-    html, final_url = s.post(
+    # Session devuelve (url_final, html). Ojo con el orden.
+    final_url, html = s.post(
         f"{BASE_URL}/acceso.php",
         {"cf_usu": EMAIL, "cf_pass": PASS, "btn_acceso": ""},
     )
-    if 'name="cf_usu"' in html:
-        return False, "login fallido (credenciales incorrectas o web no accesible)"
-    if "btn_fichar" in html or "portal-empleado" in final_url:
-        return True, "login ok"
-    return False, "respuesta inesperada tras el login"
+    # La web nueva, tras el login, devuelve una pagina que solo lleva un
+    # <script> que abre /v2/portal-empleado.php. Si sigue pidiendo login,
+    # el usuario o la contrasena no son correctos.
+    if 'name="cf_usu"' in html and "portal-empleado.php" not in html:
+        return False, "login fallido (credenciales incorrectas)"
+    return True, "login ok"
 
 def get_portal(s: Session):
-    html, _ = s.get(f"{BASE_URL}/v2/portal-empleado.php", referer=f"{BASE_URL}/acceso.php")
+    final_url, html = s.get(f"{BASE_URL}/v2/portal-empleado.php",
+                            referer=f"{BASE_URL}/acceso.php")
+    if 'name="cf_usu"' in html:
+        return None
     if "btn_fichar" not in html and "Listado de mis" not in html:
         return None
     return html
@@ -222,7 +227,7 @@ def count_today(html: str) -> int:
     return len(list_today(html))
 
 def do_punch(s: Session, cusu: str) -> str:
-    html, _ = s.post(
+    _url, html = s.post(
         f"{BASE_URL}/v2/portal-empleado.php",
         {
             "c_usu": cusu,
