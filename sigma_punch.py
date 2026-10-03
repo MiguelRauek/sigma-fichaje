@@ -40,6 +40,7 @@ import json
 import os
 import random
 import re
+import subprocess
 import sys
 import time
 import urllib.parse
@@ -75,6 +76,7 @@ EMAIL, PASS = _load_credentials()
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 LOG_PATH = os.path.join(SCRIPT_DIR, "fichaje.log")
 LOCK_PATH = os.path.join(SCRIPT_DIR, "fichaje.lock")
+TMP_DIR = os.environ.get("TMPDIR", "/data/data/com.termux/files/usr/tmp")
 
 # Último día del modo permanente (DD/MM/AAAA). Vacío = sin límite.
 # Poner "" para que no termine nunca, o una fecha para que se apague solo.
@@ -190,6 +192,100 @@ class Session:
 # ---------------------------------------------------------------------------
 # Flujo de fichaje
 # ---------------------------------------------------------------------------
+
+def _sh(*args, timeout=20):
+    """Ejecuta un comando de Termux:API sin que pueda tumbar el fichaje."""
+    try:
+        subprocess.run(list(args), timeout=timeout,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return True
+    except Exception:
+        return False
+
+def _sonido_alarma() -> str:
+    """Busca el sonido de alarma mas fuerte que tenga el movil."""
+    rutas = [
+        "/system/media/audio/alarms",
+        "/vendor/media/audio/alarms",
+        "/system/media/audio/notifications",
+        "/system/media/audio/ringtones",
+    ]
+    for d in rutas:
+        try:
+            lista = sorted(f for f in os.listdir(d)
+                           if f.lower().endswith((".ogg", ".mp3", ".wav")))
+        except OSError:
+            continue
+        if not lista:
+            continue
+        # "alarm" / "alarm_clock" suenan mas fuerte que una notificacion normal
+        marcados = [f for f in lista if "alarm" in f.lower() or "clock" in f.lower()]
+        return os.path.join(d, (marcados or lista)[0])
+    return ""
+
+def _crear_pito(ruta: str) -> str:
+    """Genera un pitido fuerte (3 pitidos agudos) por si el movil no trae
+    ningun fichero de alarma. Se escribe una vez y se reutiliza."""
+    import math
+    import struct
+    import wave
+    if os.path.exists(ruta):
+        return ruta
+    muestras = bytearray()
+    for _ in range(3):
+        for j in range(22050):                       # 0,5 s de pitido
+            muestras += struct.pack("<h", int(30000 * math.sin(2 * math.pi * 880 * j / 44100)))
+        for _ in range(11025):                       # 0,25 s de silencio
+            muestras += struct.pack("<h", 0)
+    with wave.open(ruta, "w") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(44100)
+        w.writeframes(bytes(muestras))
+    return ruta
+
+def _pitido() -> str:
+    """Ruta de un sonido suitable para alertar, o "" si no hay ninguno."""
+    f = _sonido_alarma()
+    if f:
+        return f
+    try:
+        return _crear_pito(os.path.join(TMP_DIR, "pitido.wav"))
+    except Exception:
+        return ""
+
+def aviso(motivo: str) -> None:
+    """Solo un cartel en pantalla: el fichaje fallo por otro motivo."""
+    log(f"[Aviso] {motivo}")
+    _sh("termux-toast", "Fichaje", motivo[:120])
+
+def alarma(motivo: str) -> None:
+    """Pitido escandaloso: el fichaje fallo y hay que enterarse ya.
+
+    Suena el tono de alarma del propio movil, en bucle, y encima sale un
+    cartel. Es lo que evita enterte al dia siguiente de que no fichaste.
+    """
+    log(f"[ALARMA] {motivo}")
+    f = _pitido()
+    if f:
+        _sh("termux-media-player", "play", f, "--loop", "4")
+        _sh("termux-toast", "NO SE HA PODIDO FICHAR", motivo[:120])
+        # Segundo intento: el movil podria estar con la pantalla apagada y
+        # haber ignorado la primera vez.
+        time.sleep(12)
+        _sh("termux-media-player", "play", f, "--loop", "4")
+    else:
+        for _ in range(8):
+            _sh("termux-bell", timeout=5)
+            time.sleep(1)
+        _sh("termux-toast", "NO SE HA PODIDO FICHAR", motivo[:120])
+
+def fallo_es_de_red(motivo: str) -> bool:
+    """True si el fallo fue de internet/DNS y no de la web."""
+    m = motivo.lower()
+    return ("conexión" in m or "urlerror" in m or "errno" in m
+            or "timed out" in m or "temporary failure" in m
+            or "name or service not known" in m)
 
 def login(s: Session):
     # Session devuelve (url_final, html). Ojo con el orden.
@@ -336,16 +432,27 @@ def punch_once(mode: str, label: str) -> int:
     # menudo que antes: la entrada hasta 8 veces cada 25 s y la salida hasta
     # 10 veces cada 18 s, para que quepan varias dentro de la ventana.
     delay, intentos = (25, 8) if mode == "entry" else (18, 10)
+    ultimo = "sin intentos"
+    houve_uno = False
     for attempt in range(1, intentos + 1):
         if window_end is not None and seconds_of_day(now_local()) > window_end:
             log(f"[{label}] fuera de la ventana {window_txt}, no se reintenta")
             break
+        houve_uno = True
         ok, msg = run_punch()
+        ultimo = msg
         log(f"[{label}] intento {attempt}: {'OK' if ok else 'FALLO'} — {msg}")
         if ok:
             return 0
         if attempt < intentos:
             time.sleep(delay)
+
+    # Se acabo la ventana sin fichar. Si fue por internet, delante y escandaloso.
+    if houve_uno:
+        if fallo_es_de_red(ultimo):
+            alarma(f"{label}: sin internet. {ultimo[:90]}")
+        else:
+            aviso(f"{label} no se pudo registrar. {ultimo[:90]}")
     return 1
 
 def run_forever() -> int:
