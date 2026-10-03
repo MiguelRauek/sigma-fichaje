@@ -2,71 +2,64 @@
 """Sonda: entra en SigmaTime y enseña qué devuelve el portal.
 
 Solo diagnostica. NO ficha nada.
+Usa el mismo cliente HTTP que sigma_punch.py (solo librerias de Python).
 Las credenciales las lee de config.json (nunca se suben a GitHub).
 """
-import json
-import os
 import re
 import sys
 
-BASE = "https://sigmatime.es"
-HERE = os.path.dirname(os.path.abspath(__file__))
-
-
-def creds():
-    try:
-        with open(os.path.join(HERE, "config.json"), encoding="utf-8") as f:
-            c = json.load(f)
-        return c.get("email", ""), c.get("pass", "")
-    except Exception as e:
-        print("No se pudo leer config.json:", e)
-        sys.exit(1)
+import sigma_punch as sp
 
 
 def main():
-    try:
-        from requests import Session
-    except ImportError:
-        print("Falta requests. Instala con: pip install requests")
-        sys.exit(1)
-
-    email, pw = creds()
-    s = Session()
-    s.headers.update({"User-Agent": "Mozilla/5.0 (Linux; Android 13)"})
+    s = sp.Session()
 
     print("=== 1. LOGIN ===")
-    r = s.post(f"{BASE}/acceso.php",
-               data={"cf_usu": email, "cf_pass": pw, "btn_acceso": ""},
-               timeout=40, allow_redirects=True)
-    print("URL final:", r.url)
-    print("HTTP:", r.status_code, "| bytes:", len(r.text))
-    print("¿pide login otra vez (name=cf_usu)?", 'name="cf_usu"' in r.text)
-    print("¿tiene btn_fichar?", "btn_fichar" in r.text)
-    print("¿menciona portal-empleado?", "portal-empleado" in r.text)
+    try:
+        ok, msg = sp.login(s)
+        print("login:", ok, "-", msg)
+    except Exception as e:
+        print("login: EXCEPCION", type(e).__name__, e)
+        ok = False
 
     print("\n=== 2. PORTAL ===")
-    p = s.get(f"{BASE}/v2/portal-empleado.php",
-              headers={"Referer": f"{BASE}/acceso.php"}, timeout=40)
-    html = p.text
-    print("URL final:", p.url)
-    print("HTTP:", p.status_code, "| bytes:", len(html))
-    print("¿btn_fichar?", "btn_fichar" in html)
-    print("¿Listado de mis?", "Listado de mis" in html)
-    m = re.search(r'name="c_usu"[^>]*value="([a-f0-9]+)"', html)
-    print("hash c_usu:", m.group(1) if m else "NO ENCONTRADO")
+    try:
+        html, final = s.post(f"{sp.BASE_URL}/acceso.php",
+                             {"cf_usu": sp.EMAIL, "cf_pass": sp.PASS,
+                              "btn_acceso": ""})
+        print("(esta es la respuesta que recibe el programa tras el login)")
+        print("bytes:", len(html))
+        print("URL final:", final)
+        print("pide login otra vez?", 'name="cf_usu"' in html)
+        print("tiene btn_fichar?", "btn_fichar" in html)
+        print("menciona portal-empleado?", "portal-empleado" in html)
+        print("menciona Listado de mis?", "Listado de mis" in html)
 
-    print("\n=== 3. FORMULARIOS EN LA PAGINA ===")
-    for f in re.findall(r"<form[^>]*>", html, re.I)[:6]:
-        print(" ", f[:160])
-    print("inputshidden:")
-    for i in re.findall(r'<input[^>]*type="hidden"[^>]*>', html, re.I)[:12]:
-        print(" ", i[:160])
-    print("botones:")
-    for b in re.findall(r'<(?:button|input)[^>]*(?:type="submit"|name="btn_[^"]*")[^>]*>', html, re.I)[:8]:
-        print(" ", b[:160])
+        print("\n--- donde se pierde: GET al portal ---")
+        ph, pfinal = s.get(f"{sp.BASE_URL}/v2/portal-empleado.php",
+                           referer=f"{sp.BASE_URL}/acceso.php")
+        print("bytes:", len(ph), "| URL final:", pfinal)
+        print("tiene btn_fichar?", "btn_fichar" in ph)
+        print("menciona Listado de mis?", "Listado de mis" in ph)
+        m = re.search(r'name="c_usu"[^>]*value="([a-f0-9]+)"', ph)
+        print("hash c_usu:", m.group(1) if m else "NO ENCONTRADO")
 
-    print("\n=== 4. INICIO DE LA PAGINA (2500 caracteres) ===")
-    print(html[:2500])
+        print("\n--- formularios ---")
+        for f in re.findall(r"<form[^>]*>", ph, re.I)[:6]:
+            print(" ", f[:170])
+        print("--- hidden ---")
+        for i in re.findall(r'<input[^>]*>', ph, re.I)[:15]:
+            if "hidden" in i.lower():
+                print(" ", i[:170])
+        print("--- botones ---")
+        for b in re.findall(r"<(?:button|input)[^>]*>", ph, re.I)[:20]:
+            if "submit" in b.lower() or "btn_" in b.lower():
+                print(" ", b[:170])
+
+        print("\n=== 3. PRIMEROS 1800 CARACTERES DEL PORTAL ===")
+        print(ph[:1800])
+    except Exception as e:
+        print("EXCEPCION:", type(e).__name__, e)
 
 
 if __name__ == "__main__":
