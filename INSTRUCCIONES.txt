@@ -1,34 +1,61 @@
-PASOS (Termux en el movil)
-==========================
+SIGMAFICHAJE — PASOS EN TEXTO
+=============================
 
-1) DESCARGAR setup.sh (navegador del movil, menu 3 puntos -> Descargar):
-     https://github.com/MiguelRauek/sigma-fichaje/raw/refs/heads/main/setup.sh
-   Luego en Termux:
-     cp /sdcard/Download/setup.sh ~/
+La versión con botones para copiar está en:
+https://miguelrauek.github.io/sigma-fichaje/instrucciones.html
 
-   (Opcion rapida, sin navegador: en Termux escribe
-     curl -fsSL -o setup.sh https://github.com/MiguelRauek/sigma-fichaje/raw/refs/heads/main/setup.sh )
+Ábrela en el navegador del móvil: cada paso tiene su botón de copiar.
 
-2) INSTALAR (te pedira email y password de sigmatime.es):
-     bash setup.sh
 
-   Esto descarga sigma_punch.py solo, instala paquetes, activa crond,
-   crea config.json, programa los fichajes (entrada 9:55, salida 18:00)
-   y prueba el login.
+1. Instalar Termux y Termux:API (desde F-Droid, no desde la Play Store).
 
-3) COMPROBAR QUE ES LA MISMA WEB:
-   El script entra en https://sigmatime.es con TU email y password.
-   Para verlo tu mismo:
-     python sigma_punch.py --ver
-   -> muestra los fichajes de hoy con sus horas, igual que en la web.
-   Abre sigmatime.es en el navegador y compara: son los mismos.
+2. Instalar Termux:Boot (también desde F-Droid).
 
-   Tambien puedes ver el historial del automatismo:
-     cat fichaje.log
+3. Crear config.json con tus credenciales de sigmatime.es:
 
-4) QUE ANDROID NO LO MATE:
-   Ajustes -> Apps -> Termux -> Bateria -> Sin restricciones
-   Deja Termux en segundo plano (bloquealo en recientes).
+   nano ~/config.json
 
-MAÑANA:
-   cat fichaje.log   (o: python sigma_punch.py --ver)
+   {
+     "email": "TU-CORREO",
+     "password": "TU-CONTRASENA"
+   }
+
+   Guardar con CTRL+O y salir con CTRL+X.
+
+4. Permisos en el móvil (Termux y Termux:Boot):
+   - Batería: Sin restricciones
+   - Ejecución en 2º plano: Permitir
+   - Inicio automático: Permitir
+   - Notificaciones: activadas
+
+5. Descargar el programa:
+
+   curl -fsSL -o sigma_punch.py https://raw.githubusercontent.com/MiguelRauek/sigma-fichaje/main/sigma_punch.py
+
+6. Crear el arranque automático:
+
+   mkdir -p ~/.termux/boot
+   nano ~/.termux/boot/sigma.sh
+
+   #!/data/data/com.termux/files/usr/bin/bash
+   cd $HOME
+   for i in 1 2 3 4 5 6; do termux-wake-lock && break; sleep 10; done
+   exec python sigma_punch.py --forever >> fichaje_boot.log 2>&1
+
+   CTRL+O para guardar, CTRL+X para salir.
+
+7. Reiniciar el móvil. A partir de ahí ficha solo hasta el 25/10/2026.
+
+
+COMPROBAR QUE ESTÁ FUNCIONANDO
+------------------------------
+
+Ver el log de hoy:
+
+  grep "$(date +%F)" fichaje.log
+
+Lo bueno es ver líneas "intento" y luego "OK".
+
+Comprobar solo el portal, sin fichar:
+
+  python sigma_punch.py --check
