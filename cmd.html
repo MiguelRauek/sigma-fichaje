@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Copiar comando</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:18px;background:#0f1115;color:#e8eaf0;
+     font-family:system-ui,-apple-system,Roboto,sans-serif;min-height:100vh}
+h1{font-size:19px;margin:0 0 4px}
+p.sub{margin:0 0 14px;font-size:14px;color:#98a0b0}
+pre{background:#0b0e13;border:1px solid #272b35;border-radius:10px;padding:12px;
+    font:13px/1.55 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;
+    word-break:break-word;user-select:text;-webkit-user-select:text;margin:0 0 12px}
+button{width:100%;min-height:54px;border:0;border-radius:12px;font:inherit;
+       font-size:16px;font-weight:600;cursor:pointer}
+.p{background:#3b82f6;color:#fff}
+.g{background:#1c212b;color:#e8eaf0;margin-top:10px}
+.status{min-height:22px;font-size:14px;text-align:center;color:#98a0b0;margin-bottom:10px}
+.ok{color:#4ade80}.err{color:#f87171}
+</style>
+</head>
+<body>
+<h1>📋 Copiar comando</h1>
+<p class="sub">Toca <b>Copiar</b> y después pégalo en Termux.</p>
+<div class="status" id="st"></div>
+<pre id="txt">cargando…</pre>
+<button class="p" id="c">Copiar</button>
+<button class="g" id="s">Seleccionar todo</button>
+<script>
+var txt = '';
+try {
+  var h = location.hash.replace(/^#/, '');
+  txt = h ? decodeURIComponent(h) : '';
+} catch (e) { txt = ''; }
+
+var st = document.getElementById('st');
+var box = document.getElementById('txt');
+function say(t, cls) { st.textContent = t; st.className = 'status ' + (cls || ''); }
+
+if (!txt) {
+  box.textContent = 'No hay ningún comando. Pide uno y te llegará el enlace.';
+} else {
+  box.textContent = txt;
+}
+
+document.getElementById('s').onclick = function () {
+  var r = document.createRange(); r.selectNodeContents(box);
+  var sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+  say('Seleccionado. Mantén pulsado y elige Copiar.', '');
+};
+
+document.getElementById('c').onclick = function () {
+  if (!txt) { say('No hay nada que copiar', 'err'); return; }
+  var done = function () { say('¡Copiado! Abre Termux y pega.', 'ok'); };
+  var fallback = function () {
+    var r = document.createRange(); r.selectNodeContents(box);
+    var sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    try {
+      if (document.execCommand('copy')) { done(); return; }
+    } catch (e) {}
+    say('Mantén pulsado el texto y elige Copiar.', 'err');
+  };
+  if (!navigator.clipboard || !navigator.clipboard.writeText) { fallback(); return; }
+  navigator.clipboard.writeText(txt).then(done, fallback);
+};
+</script>
+</body>
+</html>
