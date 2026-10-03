@@ -5,11 +5,16 @@
 # minutos al dia, en vez de 8 horas.
 mkdir -p ~/bin
 
-# Android no deja programar cada menos de 15 min, por eso el reloj.sh
-# comprueba la hora y solo trabaja si toca.
-termux-job-scheduler --job-id 77 --period 900000 --network any \
-  --force-schedule --script ~/bin/reloj.sh >> fichaje_boot.log 2>&1 \
-|| termux-job-scheduler --job-id 77 --period 900000 --network any \
-  --force-schedule ~/bin/reloj.sh >> fichaje_boot.log 2>&1
+# --job-id 77 sustituye el trabajo anterior con el mismo id, asi que
+# repetir esto en cada arranque es seguro. --persisted true hace que el
+# trabajo sobreviva a reinicios del movil.
+# Android no deja programar cada menos de 15 min (900000 ms), por eso
+# reloj.sh comprueba la hora y solo trabaja cuando toca.
+termux-job-scheduler \
+  --job-id 77 \
+  --period-ms 900000 \
+  --network any \
+  --persisted true \
+  --script ~/bin/reloj.sh >> fichaje_boot.log 2>&1
 
 exit 0
