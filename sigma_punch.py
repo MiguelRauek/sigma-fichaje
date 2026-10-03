@@ -120,18 +120,25 @@ def now_local() -> datetime:
 def seconds_of_day(dt: datetime) -> int:
     return dt.hour * 3600 + dt.minute * 60 + dt.second
 
-# Ventana de entrada: 10:05:00–10:08:59. Se cambió el 27/09/2026 porque el
-# nuevo hotel tiene otro horario de bus y ya no se puede llegar a las 9:55.
-ENTRY_START = 10 * 3600 + 5 * 60        # 10:05:00
-ENTRY_SPAN = 239                        # 3 min 59 s -> hasta 10:08:59
+# Ventanas de fichaje.
+#   Entrada: 10:00:00 - 10:02:59   (pedido: "entre las 10 y las 10.02")
+#   Salida : 18:00:00 - 18:02:59   (pedido: "entre 18 y 18.02")
+# Dentro de cada ventana se sortea un segundo, para no fichar siempre igual.
+ENTRY_START = 10 * 3600               # 10:00:00
+ENTRY_SPAN = 179                      # -> hasta 10:02:59
+EXIT_START = 18 * 3600                # 18:00:00
+EXIT_SPAN = 179                       # -> hasta 18:02:59
+
+ENTRY_TXT = "10:00:00-10:02:59"
+EXIT_TXT = "18:00:00-18:02:59"
 
 def target_entry() -> int:
-    """Segundo aleatorio uniforme en [10:05:00, 10:08:59]."""
+    """Segundo aleatorio uniforme en [10:00:00, 10:02:59]."""
     return ENTRY_START + random.randint(0, ENTRY_SPAN)
 
 def target_exit() -> int:
-    """Segundo aleatorio uniforme en [18:00:00, 18:00:59]. Nunca antes de 18:00:00."""
-    return 18 * 3600 + random.randint(0, 59)
+    """Segundo aleatorio uniforme en [18:00:00, 18:02:59]."""
+    return EXIT_START + random.randint(0, EXIT_SPAN)
 
 def wait_until(target_secs: int, label: str) -> None:
     """Espera hasta que la hora local alcance target_secs (en tramos de 60 s)."""
@@ -311,10 +318,10 @@ def punch_once(mode: str, label: str) -> int:
 
     if mode == "entry":
         target = target_entry()
-        window_end, window_txt = ENTRY_START + ENTRY_SPAN, "10:05:00–10:08:59"
+        window_end, window_txt = ENTRY_START + ENTRY_SPAN, ENTRY_TXT
     elif mode == "exit":
         target = target_exit()
-        window_end, window_txt = 18 * 3600 + 59, "18:00:00–18:00:59"
+        window_end, window_txt = EXIT_START + EXIT_SPAN, EXIT_TXT
     else:
         target = seconds_of_day(now_local())
         window_end, window_txt = None, ""
@@ -325,11 +332,10 @@ def punch_once(mode: str, label: str) -> int:
     if mode != "test":
         wait_until(target, label)
 
-    # Reintentos. Con internet intermitente (el fallo del 02/10/2026 fue
-    # justo eso: DNS caido) hay que insistir varias veces y muy seguido.
-    #   entrada: 6 intentos cada 45 s -> cubre toda la ventana
-    #   salida : 4 intentos cada 15 s -> cubre toda la ventana
-    delay, intentos = (45, 6) if mode == "entry" else (15, 4)
+    # Reintentos. Las ventanas son de 3 minutos, asi que se insiste mas a
+    # menudo que antes: la entrada hasta 8 veces cada 25 s y la salida hasta
+    # 10 veces cada 18 s, para que quepan varias dentro de la ventana.
+    delay, intentos = (25, 8) if mode == "entry" else (18, 10)
     for attempt in range(1, intentos + 1):
         if window_end is not None and seconds_of_day(now_local()) > window_end:
             log(f"[{label}] fuera de la ventana {window_txt}, no se reintenta")
@@ -460,9 +466,14 @@ def main() -> int:
     # Cerrojo: solo un proceso puede fichar a la vez (autoarranque + manual).
     # --test/--check/--ver no lo usan: son pruebas y no deben verse bloqueados.
     # --forever lo toma una vez y lo mantiene toda su vida, porque es el
-    # proceso que ficha todos los días: si lo soltara, otro podría duplicar.
+    # proceso que ficha todos los dias: si lo soltara, otro podría duplicar.
     bloqueado = False
     if mode in ("entry", "exit", "daily", "forever"):
+        # Tope de fechas tambien para los modos sueltos: si el movil deja de
+        # fichar el 25/10 pero sigue programmeado, no debe seguir fichando.
+        if LAST_DAY and now_local().strftime("%d/%m/%Y") > LAST_DAY:
+            log(f"[{label}] hoy es posterior a {LAST_DAY}; fin del periodo, no se ficha")
+            return 0
         if not acquire_lock():
             pid = _lock_holder()
             log(f"[{label}] otro proceso ya está fichando (pid {pid}) — no se duplica, saliendo")
