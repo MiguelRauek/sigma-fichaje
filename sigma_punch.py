@@ -329,12 +329,38 @@ def count_today(html: str) -> int:
     """Cuenta los fichajes (HH:MM:SS) de hoy en el listado del portal."""
     return len(list_today(html))
 
-def do_punch(s: Session, cusu: str) -> str:
+def leer_c_tip(html: str) -> str:
+    """El valor de c_tip que pone Sigma en el formulario.
+
+    OJO: esto NO lo elegimos nosotros. Sigma lo pone segun el estado del
+    interruptor, asi que ese valor ya es "lo que toca ahora". Si esta a 1
+    el boton esta en verde y se registra una ENTRADA; si esta a 2, esta en
+    rojo y se registra una SALIDA. Por eso hay que leerlo del portal y
+    reenviarlo tal cual, en vez de mandar siempre 1.
+    """
+    m = re.search(r'name="c_tip"[^>]*value="([^"]*)"', html, re.I)
+    if not m:
+        m = re.search(r'value="([^"]*)"[^>]*name="c_tip"', html, re.I)
+    return m.group(1).strip() if m else ""
+
+def _imagen_fichaje(html: str) -> str:
+    m = re.search(r"gallery/(\d+)\.png", html, re.I)
+    return m.group(1) if m else ""
+
+def estado_boton(html: str) -> tuple:
+    """(c_tip, etiqueta) con lo que el interruptor dice que toca ahora."""
+    ct = leer_c_tip(html)
+    etiquetas = {"1": "ENTRADA (boton verde)",
+                 "2": "SALIDA (boton rojo)",
+                 "3": "SALIDA (boton rojo)"}
+    return ct, etiquetas.get(ct, f"c_tip={ct or 'desconocido'}")
+
+def do_punch(s: Session, cusu: str, c_tip: str) -> str:
     _url, html = s.post(
         f"{BASE_URL}/v2/portal-empleado.php",
         {
             "c_usu": cusu,
-            "c_tip": "1",
+            "c_tip": str(c_tip),
             "c_coor2": "",
             "fic_subtipo": "0",  # 0 = Horas ordinarias
             "btn_fichar": "",
@@ -418,12 +444,30 @@ def run_punch():
         cusu = extract_cusu(portal)
         if not cusu:
             return False, f"no se encontró el hash c_usu (fichajes de hoy: {before})"
-        do_punch(s, cusu)
+
+        # Sigma pone en el formulario lo que toca ahora. Se reenvia tal cual,
+        # sin inventarlo: asi el fichaje siempre es del color que tiene el
+        # interruptor (verde=entrada, rojo=salida) y nunca al reves.
+        c_tip, que_toca = estado_boton(portal)
+        if not c_tip:
+            return False, "no se encontró c_tip en el portal; no se ficha a ciegas"
+        log(f"[Estado] el interruptor dice: {que_toca} (c_tip={c_tip})")
+
+        do_punch(s, cusu, c_tip)
+
         portal2 = get_portal(s)
-        after = count_today(portal2) if portal2 is not None else -1
-        if after == before + 1:
-            return True, f"fichaje registrado (hoy: {before} → {after})"
-        return False, f"el fichaje no se reflejó (antes={before}, después={after})"
+        if portal2 is None:
+            return False, "se pulsó pero no se pudo comprobar el resultado"
+        after = count_today(portal2)
+        c_tip2, _ = estado_boton(portal2)
+        if after != before + 1:
+            return False, (f"el fichaje no se reflejó (antes={before}, "
+                           f"después={after})")
+        if c_tip2 == c_tip:
+            return False, (f"se anotó {que_toca} pero el interruptor sigue en "
+                           f"c_tip={c_tip}; no cambió de color")
+        log(f"[Estado] el interruptor cambió (c_tip={c_tip} → {c_tip2})")
+        return True, f"fichaje OK: {que_toca} (hoy: {before} → {after})"
     except Exception as e:          # red, DNS, portal caido, HTML raro...
         return False, f"fallo de conexión ({type(e).__name__}: {e})"
 
