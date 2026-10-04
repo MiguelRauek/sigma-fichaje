@@ -378,10 +378,24 @@ def run_volcar():
     print(f"[Volcar] guardado {destino} ({len(portal)} bytes)")
     print(f"[Volcar] boton fichar: {_texto_boton(portal)!r}")
     print(f"[Volcar] fichajes hoy: {list_today(portal)}")
-    print("[Volcar] contexto del boton:")
-    for m in re.finditer(r"btn_fichar", portal, re.I):
-        ini = max(0, m.start() - 260)
-        print("   ...", " ".join(portal[ini:m.end() + 60].split())[:420])
+    print("\n[Volcar] === COMO SE ENVIA c_tip (entrada vs salida) ===")
+    visto = set()
+    for m in re.finditer(r"c_tip", portal, re.I):
+        trozo = " ".join(portal[max(0, m.start() - 300):m.end() + 200].split())
+        if trozo in visto:
+            continue
+        visto.add(trozo)
+        print("   *", trozo[:460])
+    print("\n[Volcar] === TODOS LOS BOTONES Y CAMPOS ===")
+    for m in re.finditer(r"<(?:input|button|select|option)[^>]*>", portal, re.I):
+        etiqueta = " ".join(m.group(0).split())
+        if re.search(r"fich|btn|tip|subtipo|horario|action", etiqueta, re.I):
+            print("   *", etiqueta[:220])
+    print("\n[Volcar] === FORMULARIOS ===")
+    for m in re.finditer(r"<form[\s\S]{0,900}?</form>", portal, re.I):
+        txt = " ".join(m.group(0).split())
+        if re.search(r"fich", txt, re.I):
+            print("   *", txt[:700])
     return True, "ok"
 
 def run_punch():
