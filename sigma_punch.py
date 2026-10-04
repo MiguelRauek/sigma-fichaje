@@ -343,6 +343,47 @@ def do_punch(s: Session, cusu: str) -> str:
     )
     return html
 
+def _texto_boton(html: str) -> str:
+    """Texto visible del boton de fichar: dice si toca ENTRADA o SALIDA.
+
+    Busca cualquier etiqueta que contenga btn_fichar y saca su value= o su
+    texto interior, estea como estea ordenado.
+    """
+    for etiqueta in re.findall(r"<[^<>]*btn_fichar[^<>]*>[^<]*", html, re.I):
+        v = re.search(r'value="([^"]*)"', etiqueta, re.I)
+        if v and v.group(1).strip():
+            return " ".join(v.group(1).split())
+        texto = re.sub(r"<[^<>]*>", " ", etiqueta)
+        texto = " ".join(texto.split())
+        if texto:
+            return texto
+    return ""
+
+def run_volcar():
+    """Guarda el portal y enseña el boton de fichar. NO ficha nada.
+
+    El portal es un interruptor verde/rojo: hay que fichar en el momento
+    correcto, asi que hay que poder leer que dice el boton.
+    """
+    s = Session()
+    ok, msg = login(s)
+    if not ok:
+        return False, msg
+    portal = get_portal(s)
+    if portal is None:
+        return False, "no se pudo leer el portal tras el login"
+    destino = os.path.join(SCRIPT_DIR, "portal.html")
+    with open(destino, "w", encoding="utf-8") as f:
+        f.write(portal)
+    print(f"[Volcar] guardado {destino} ({len(portal)} bytes)")
+    print(f"[Volcar] boton fichar: {_texto_boton(portal)!r}")
+    print(f"[Volcar] fichajes hoy: {list_today(portal)}")
+    print("[Volcar] contexto del boton:")
+    for m in re.finditer(r"btn_fichar", portal, re.I):
+        ini = max(0, m.start() - 260)
+        print("   ...", " ".join(portal[ini:m.end() + 60].split())[:420])
+    return True, "ok"
+
 def run_punch():
     """Intenta fichar una vez. NUNCA lanza excepciones.
 
@@ -557,6 +598,8 @@ def main() -> int:
         mode, label = "check", "Check"
     elif "--ver" in sys.argv:
         mode, label = "ver", "Ver"
+    elif "--volcar" in sys.argv:
+        mode, label = "volcar", "Volcar"
     elif "--forever" in sys.argv:
         # Modo permanente: todos los días hasta LAST_DAY, sin intervención.
         mode, label = "forever", "Permanente"
@@ -602,6 +645,11 @@ def main() -> int:
         if mode == "ver":
             ok, msg = run_ver()
             log(f"[Ver] {'OK' if ok else 'FALLO'} — {msg}")
+            return 0 if ok else 1
+
+        if mode == "volcar":
+            ok, msg = run_volcar()
+            log(f"[Volcar] {'OK' if ok else 'FALLO'} — {msg}")
             return 0 if ok else 1
 
         if mode == "forever":
