@@ -126,13 +126,13 @@ def seconds_of_day(dt: datetime) -> int:
 #   Entrada: 10:00:00 - 10:02:59   (pedido: "entre las 10 y las 10.02")
 #   Salida : 18:00:00 - 18:02:59   (pedido: "entre 18 y 18.02")
 # Dentro de cada ventana se sortea un segundo, para no fichar siempre igual.
-ENTRY_START = 10 * 3600               # 10:00:00
-ENTRY_SPAN = 179                      # -> hasta 10:02:59
-EXIT_START = 18 * 3600                # 18:00:00
-EXIT_SPAN = 179                       # -> hasta 18:02:59
+ENTRY_START = 10 * 3600 + 8 * 60       # 10:08:00
+ENTRY_SPAN = 179                       # -> hasta 10:10:59
+EXIT_START = 18 * 3600 + 6 * 60        # 18:06:00
+EXIT_SPAN = 299                        # -> hasta 18:10:59
 
-ENTRY_TXT = "10:00:00-10:02:59"
-EXIT_TXT = "18:00:00-18:02:59"
+ENTRY_TXT = "10:08:00-10:10:59"
+EXIT_TXT = "18:06:00-18:10:59"
 
 def target_entry() -> int:
     """Segundo aleatorio uniforme en [10:00:00, 10:02:59]."""
@@ -526,6 +526,13 @@ def punch_once(mode: str, label: str) -> int:
 
     if mode != "test":
         wait_until(target, label)
+
+    # Si el movil despertó con la ventana ya cerrada (el reloj de Android a
+    # veces se retrasa), no se puede fichar a tiempo: se avisa en voz alta en
+    # vez de quedarse callado y que parezca que todo fue bien.
+    if window_end is not None and seconds_of_day(now_local()) > window_end:
+        alarma(f"{label}: no se pudo fichar, la ventana {window_txt} ya paso")
+        return 1
 
     # Reintentos. Las ventanas son de 3 minutos, asi que se insiste mas a
     # menudo que antes: la entrada hasta 8 veces cada 25 s y la salida hasta
