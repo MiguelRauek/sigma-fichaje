@@ -12,9 +12,14 @@ echo "$(date '+%d/%m %H:%M:%S') reloj activo" >> fichaje_boot.log
 # OJO: los patrones son de 4 digitos porque $H conserva el cero inicial.
 # Si se quita con $((10#$H)), 09:57 pasa a ser 957 y ya no coincide con
 # ningun patron, y la entrada se queda sin hacer. No hacerlo.
+#
+# Las bandas arrancan ANTES de la ventana de fichaje: el reloj despertando a
+# las 09:56 es lo que permite esperar hasta las 10:09 con el candado puesto.
+#   entrada  fichar entre 10:08:00 y 10:10:59
+#   salida   fichar entre 18:06:00 y 18:10:59
 case "$H" in
-  094[5-9]|095[0-9]|100[0-2]) M=--entry ;;
-  174[5-9]|175[0-9]|180[0-2]) M=--exit  ;;
+  09[45][0-9]|100[0-9]|101[0-2]) M=--entry ;;
+  175[0-9]|180[0-9]|181[0-2])    M=--exit  ;;
   *) exit 0 ;;                          # el resto del dia: no gasta nada
 esac
 
