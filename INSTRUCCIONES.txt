@@ -9,8 +9,8 @@ https://miguelrauek.github.io/sigma-fichaje/instrucciones.html
 
 HORARIOS
 --------
-   Entrada:  entre 10:00:00 y 10:02:59  (segundo al azar)
-   Salida :  entre 18:00:00 y 18:02:59  (segundo al azar)
+   Entrada:  entre 10:08:00 y 10:10:59  (segundo al azar)
+   Salida :  entre 18:06:00 y 18:10:59  (segundo al azar)
    Hasta el 25/10/2026, incluido. Ese día ficha y se apaga.
 
 
