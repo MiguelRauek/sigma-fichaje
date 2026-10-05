@@ -7,11 +7,11 @@ Todo ocurre en el móvil (Termux) y el móvil es el único que hace el fichaje.
 
 | Fichaje | Ventana |
 |---|---|
-| **Entrada** | Segundo aleatorio entre **10:00:00 y 10:02:59** |
-| **Salida** | Segundo aleatorio entre **18:00:00 y 18:02:59** |
+| **Entrada** | Segundo aleatorio entre **10:08:00 y 10:10:59** |
+| **Salida** | Segundo aleatorio entre **18:06:00 y 18:10:59** |
 
 Cada día se sortea un segundo nuevo dentro de cada ventana. Nada se ficha
-antes de las 10:00 ni antes de las 18:00.
+antes de las 10:08 ni antes de las 18:06.
 
 **Periodo: hasta el 25/10/2026, incluido.** Ese día ficha y luego se apaga solo.
 
