@@ -20,7 +20,7 @@ echo "$(date '+%d/%m %H:%M:%S') reloj activo" >> fichaje_boot.log
 case "$H" in
   09[45][0-9]|100[0-9]|101[0-2]) M=--entry ;;
   175[0-9]|180[0-9]|181[0-2])    M=--exit  ;;
-  *) exit 0 ;;                          # el resto del dia: no gasta nada
+  *) exit 0 ;;
 esac
 
 # Solo ahora toma el candado, y lo suelta al terminar.
