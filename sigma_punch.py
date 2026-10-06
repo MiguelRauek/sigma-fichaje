@@ -126,12 +126,12 @@ def seconds_of_day(dt: datetime) -> int:
 #   Entrada: 10:00:00 - 10:02:59   (pedido: "entre las 10 y las 10.02")
 #   Salida : 18:00:00 - 18:02:59   (pedido: "entre 18 y 18.02")
 # Dentro de cada ventana se sortea un segundo, para no fichar siempre igual.
-ENTRY_START = 10 * 3600 + 8 * 60       # 10:08:00
-ENTRY_SPAN = 179                       # -> hasta 10:10:59
+ENTRY_START = 10 * 3600 + 6 * 60       # 10:06:00
+ENTRY_SPAN = 239                        # -> hasta 10:09:59
 EXIT_START = 18 * 3600 + 6 * 60        # 18:06:00
 EXIT_SPAN = 299                        # -> hasta 18:10:59
 
-ENTRY_TXT = "10:08:00-10:10:59"
+ENTRY_TXT = "10:06:00-10:09:59"
 EXIT_TXT = "18:06:00-18:10:59"
 
 def target_entry() -> int:
