@@ -8,7 +8,7 @@ Todo ocurre en el móvil (Termux) y el móvil es el único que hace el fichaje.
 | Fichaje | Ventana |
 |---|---|
 | **Entrada** | Segundo aleatorio entre **10:06:00 y 10:09:59** |
-| **Salida** | Segundo aleatorio entre **18:06:00 y 18:10:59** |
+| **Salida** | Segundo aleatorio entre **18:06:00 y 18:09:59** |
 
 Cada día se sortea un segundo nuevo dentro de cada ventana. Nada se ficha
 antes de las 10:06 ni antes de las 18:06.
@@ -32,7 +32,7 @@ dos fichajes: con uno hecha la entrada está hecha, con dos la salida.
    - dentro de la ventana y coincide → se pulsa con el `c_tip` del portal;
    - el fichaje de ese modo ya está hecho → se da por bueno, sin error;
    - **fuera de la ventana del modo (entrada 10:06–10:09:59, salida
-     18:06–18:10:59) → no se pulsa**, aunque el botón esté en el color
+     18:06–18:09:59) → no se pulsa**, aunque el botón esté en el color
      que sea;
    - no coincide (p. ej. un `--entry` con el botón ya en rojo) → **no se
      pulsa**, para nunca registrar una salida a las 10 de la mañana.

@@ -69,7 +69,7 @@
   <p class="sub">Pulsa cada botón para copiar y pega en <b>Termux</b>.</p>
   <div class="grid">
     <div class="cell"><span>Entrada</span><b>10:06–10:09</b></div>
-    <div class="cell"><span>Salida</span><b>18:06–18:10</b></div>
+    <div class="cell"><span>Salida</span><b>18:06–18:09</b></div>
     <div class="cell"><span>Hasta el</span><b>25/10/2026</b></div>
     <div class="cell"><span>Tu Smartphone</span><b>07:30</b></div>
   </div>
@@ -78,7 +78,7 @@
 <div id="app"></div>
 
 <footer>
-  <span class="tag">ENTRADA 10:06:00→10:09:59</span><span class="tag">SALIDA 18:06:00→18:10:59</span><br><br>
+  <span class="tag">ENTRADA 10:06:00→10:09:59</span><span class="tag">SALIDA 18:06:00→18:09:59</span><br><br>
   El reloj se programa solo cada 15 minutos y el fichaje se apaga el 25/10/2026.
 </footer>
 
@@ -138,7 +138,7 @@ function render(){
   const f = document.createElement('div'); f.className='step';
   f.innerHTML = '<div class="hd"><div class="n" style="background:var(--acc)">✓</div><h2>Ya está</h2></div>'
     + '<div class="ok">El móvil se enciende a las 07:30 y se apaga a las 02:00. A partir de ahí el reloj '
-    + 'ficha la <b>entrada entre 10:06 y 10:09</b> y la <b>salida entre 18:06 y 18:10</b>, solo, y se apaga el <b>25/10/2026</b>. No tienes que hacer nada más.</div>'
+    + 'ficha la <b>entrada entre 10:06 y 10:09</b> y la <b>salida entre 18:06 y 18:09</b>, solo, y se apaga el <b>25/10/2026</b>. No tienes que hacer nada más.</div>'
     + '<div class="tip">Si un día quieres comprobarlo: <b>grep "$(date +%F)" fichaje.log</b> · Ver que el reloj late: <b>tail -3 ~/fichaje_boot.log</b> · Para pausar un día, '
     + 'añade la fecha (DD/MM/AAAA) en <b>skip_dates.txt</b>.</div>';
   app.appendChild(f);

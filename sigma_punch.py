@@ -10,18 +10,18 @@ GitHub Actions.
 Uso:
   python3 sigma_punch.py           # modo diario: entrada + salida (para Pydroid)
   python3 sigma_punch.py --entry   # entrada: aleatoria entre 10:06 y 10:09
-  python3 sigma_punch.py --exit    # salida:  aleatoria entre 18:06 y 18:10
+  python3 sigma_punch.py --exit    # salida:  aleatoria entre 18:06 y 18:09
   python3 sigma_punch.py --test    # fichar ya (solo dentro de una ventana)
   python3 sigma_punch.py --check   # comprobar login y portal SIN fichar nada
   python3 sigma_punch.py --ver     # ver los fichajes de hoy (igual que en la web)
 
 Los fichajes SOLO se registran dentro de su ventana (entrada 10:06:00-10:09:59,
-salida 18:06:00-18:10:59). decidir() lo bloquea en todos los modos, --test
+salida 18:06:00-18:09:59). decidir() lo bloquea en todos los modos, --test
 incluido: fuera de la ventana no hay pulsacion posible.
 
 Modo diario (Pydroid): sin argumentos ficha la entrada y luego la salida en la
 misma ejecución. Se lanza por la mañana y queda esperando todo el día. Si se
-lanza por la noche (después de que pasó la ventana de salida, 18:10:59), espera
+lanza por la noche (después de que pasó la ventana de salida, 18:09:59), espera
 hasta la entrada del día siguiente y ficha entrada y salida de ese día.
 
 Variables de entorno:
@@ -128,22 +128,22 @@ def seconds_of_day(dt: datetime) -> int:
 
 # Ventanas de fichaje.
 #   Entrada: 10:06:00 - 10:09:59
-#   Salida : 18:06:00 - 18:10:59
+#   Salida : 18:06:00 - 18:09:59
 # Dentro de cada ventana se sortea un segundo, para no fichar siempre igual.
 ENTRY_START = 10 * 3600 + 6 * 60       # 10:06:00
 ENTRY_SPAN = 239                        # -> hasta 10:09:59
 EXIT_START = 18 * 3600 + 6 * 60        # 18:06:00
-EXIT_SPAN = 299                        # -> hasta 18:10:59
+EXIT_SPAN = 239                        # -> hasta 18:09:59
 
 ENTRY_TXT = "10:06:00-10:09:59"
-EXIT_TXT = "18:06:00-18:10:59"
+EXIT_TXT = "18:06:00-18:09:59"
 
 def target_entry() -> int:
     """Segundo aleatorio uniforme en [10:06:00, 10:09:59]."""
     return ENTRY_START + random.randint(0, ENTRY_SPAN)
 
 def target_exit() -> int:
-    """Segundo aleatorio uniforme en [18:06:00, 18:10:59]."""
+    """Segundo aleatorio uniforme en [18:06:00, 18:09:59]."""
     return EXIT_START + random.randint(0, EXIT_SPAN)
 
 def wait_until(target_secs: int, label: str) -> None:
@@ -377,7 +377,7 @@ def decidir(mode: str, c_tip: str, before: int, ahora: int | None = None) -> tup
 
     GARANTIAS (no hay forma de saltarselas, ni con --test):
       * La ENTRADA solo se registra entre 10:06:00 y 10:09:59.
-      * La SALIDA  solo se registra entre 18:06:00 y 18:10:59.
+      * La SALIDA  solo se registra entre 18:06:00 y 18:09:59.
       * Fuera de esa ventana NO se pulsa nunca, aunque el boton este en el
         color que sea. Esto es lo que evita una salida a las 10 de la
         manana: sin esta regla, un --entry repetido con el boton ya en
@@ -697,7 +697,7 @@ def run_forever() -> int:
 def run_daily() -> int:
     """Modo diario: entrada + salida en la misma ejecución.
 
-    Si se lanza después de que la ventana de salida ya pasó (18:10:59),
+    Si se lanza después de que la ventana de salida ya pasó (18:09:59),
     espera hasta la entrada del día siguiente y ficha ese día.
     """
     now = now_local()

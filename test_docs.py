@@ -56,24 +56,30 @@ ok(vals["ENTRY_TXT"] == f'{hhmmss(vent["entrada"][0])}-{hhmmss(vent["entrada"][1
 ok(vals["EXIT_TXT"] == f'{hhmmss(vent["salida"][0])}-{hhmmss(vent["salida"][1])}',
    f'EXIT_TXT coherente con EXIT_START/SPAN -> {vals["EXIT_TXT"]}')
 
+# --- 2b. la salida tiene que ser la entrada + 8 h exactas -----------------
+ok(vent["salida"][0] - vent["entrada"][0] == 8 * 3600
+   and vent["salida"][1] - vent["entrada"][1] == 8 * 3600,
+   "ventana de salida = ventana de entrada + 8 h (los dos extremos)")
+
 # --- 3. la politica en si: no ha cambiado de sitio ------------------------
 ok(vent["entrada"] == (10 * 3600 + 6 * 60, 10 * 3600 + 9 * 60 + 59),
    "ventana de entrada fijada en 10:06:00-10:09:59")
-ok(vent["salida"] == (18 * 3600 + 6 * 60, 18 * 3600 + 10 * 60 + 59),
-   "ventana de salida fijada en 18:06:00-18:10:59")
-ok(vals["ENTRY_SPAN"] == 239 and vals["EXIT_SPAN"] == 299,
-   "duraciones: entrada 239 s, salida 299 s")
+ok(vent["salida"] == (18 * 3600 + 6 * 60, 18 * 3600 + 9 * 60 + 59),
+   "ventana de salida fijada en 18:06:00-18:09:59")
+ok(vals["ENTRY_SPAN"] == 239 and vals["EXIT_SPAN"] == 239,
+   "duraciones: entrada 239 s, salida 239 s")
 
 # --- 4. cada doc sigue mencionando los cuatro extremos --------------------
 DOCS = ("README.md", "INSTRUCCIONES.txt", "instrucciones.html", "reloj.sh")
 for doc in DOCS:
     txt = (HERE / doc).read_text(encoding="utf-8")
-    for tok in ("10:06", "10:09", "18:06", "18:10"):
+    for tok in ("10:06", "10:09", "18:06", "18:09"):
         ok(tok in txt, f"{doc} menciona {tok}")
 
 # --- 5. sin restos de los rangos viejos -----------------------------------
-# 18:02 era el corte viejo de salida; 10:11/18:11:59/10:10:00 el final viejo
-VIEJOS = ("18:02", "10:11", "18:11:59", "10:10:00")
+# 18:02 era el corte viejo de salida; 18:10:59 el final viejo de la salida;
+# 10:11/18:11:59/10:10:00 los finales viejos de la entrada
+VIEJOS = ("18:02", "18:10:59", "10:11", "18:11:59", "10:10:00")
 for doc in DOCS:
     txt = (HERE / doc).read_text(encoding="utf-8")
     for viejo in VIEJOS:

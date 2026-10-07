@@ -21,7 +21,8 @@ def check(name, got, want):
 
 # --- 1. matriz decidir() -------------------------------------------------
 # segundos del dia: 09:00=32400 10:06=36360 10:07=36420 10:09:59=36599
-#                    10:11=36660 12:00=43200 18:06=65160 18:07=65220 18:11=65460
+#                    10:11=36660 12:00=43200 18:06=65160 18:07=65220
+#                    18:09:59=65399 18:10:00=65400 18:11=65460
 M = [
     # (mode, c_tip, before, ahora, accion_esperada, porque)
     ("entry", "1", 0, 36420, "pulsar", "normal: dia limpio, boton verde, en ventana"),
@@ -40,7 +41,9 @@ M = [
     ("exit",  "2", 0, 65220, "fallo",  "rojo sin entrada: no se ficha la salida"),
     ("exit",  "2", 1, 36420, "fallo",  "CLAVE: SALIDA A LAS 10:07 DE LA MANANA"),
     ("exit",  "2", 1, 43200, "fallo",  "salida a mediodia (12:00)"),
-    ("exit",  "2", 1, 65460, "fallo",  "salida despues de las 18:10:59"),
+    ("exit",  "2", 1, 65399, "pulsar", "ultimo segundo de la ventana (18:09:59)"),
+    ("exit",  "2", 1, 65400, "fallo",  "18:10:00 ya fuera de la ventana de salida"),
+    ("exit",  "2", 1, 65460, "fallo",  "salida despues de las 18:09:59"),
     ("",      "1", 0, 36420, "pulsar", "--test dentro de la ventana de entrada"),
     ("",      "2", 1, 65220, "pulsar", "--test dentro de la ventana de salida"),
     ("",      "1", 0, 43200, "fallo",  "--test fuera de ventana: no se puede"),
@@ -59,7 +62,8 @@ check("en_ventana entry 10:06:00", sp.en_ventana("entry", 36360), True)
 check("en_ventana entry 10:09:59", sp.en_ventana("entry", 36599), True)
 check("en_ventana entry 10:10:00", sp.en_ventana("entry", 36600), False)
 check("en_ventana exit 18:06:00", sp.en_ventana("exit", 65160), True)
-check("en_ventana exit 18:10:59", sp.en_ventana("exit", 65459), True)
+check("en_ventana exit 18:09:59", sp.en_ventana("exit", 65399), True)
+check("en_ventana exit 18:10:00", sp.en_ventana("exit", 65400), False)
 check("en_ventana exit 18:11:00", sp.en_ventana("exit", 65460), False)
 check("en_ventana exit a las 10:07", sp.en_ventana("exit", 36420), False)
 
