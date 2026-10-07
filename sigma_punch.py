@@ -11,9 +11,13 @@ Uso:
   python3 sigma_punch.py           # modo diario: entrada + salida (para Pydroid)
   python3 sigma_punch.py --entry   # entrada: aleatoria entre 10:06 y 10:09
   python3 sigma_punch.py --exit    # salida:  aleatoria entre 18:06 y 18:10
-  python3 sigma_punch.py --test    # fichar ya (para probar)
+  python3 sigma_punch.py --test    # fichar ya (solo dentro de una ventana)
   python3 sigma_punch.py --check   # comprobar login y portal SIN fichar nada
   python3 sigma_punch.py --ver     # ver los fichajes de hoy (igual que en la web)
+
+Los fichajes SOLO se registran dentro de su ventana (entrada 10:06:00-10:09:59,
+salida 18:06:00-18:10:59). decidir() lo bloquea en todos los modos, --test
+incluido: fuera de la ventana no hay pulsacion posible.
 
 Modo diario (Pydroid): sin argumentos ficha la entrada y luego la salida en la
 misma ejecución. Se lanza por la mañana y queda esperando todo el día. Si se
@@ -355,44 +359,67 @@ def estado_boton(html: str) -> tuple:
                  "3": "SALIDA (boton rojo)"}
     return ct, etiquetas.get(ct, f"c_tip={ct or 'desconocido'}")
 
-def decidir(mode: str, c_tip: str, before: int) -> tuple:
-    """Si hay que pulsar, segun el modo y el estado real del portal.
+def en_ventana(mode: str, ahora: int) -> bool:
+    """True si 'ahora' (segundos desde 00:00) cae dentro de la ventana del modo."""
+    if mode == "entry":
+        return ENTRY_START <= ahora <= ENTRY_START + ENTRY_SPAN
+    if mode == "exit":
+        return EXIT_START <= ahora <= EXIT_START + EXIT_SPAN
+    return True
+
+def decidir(mode: str, c_tip: str, before: int, ahora: int | None = None) -> tuple:
+    """Si hay que pulsar, segun el modo, el estado del portal y la hora.
 
     Devuelve (accion, mensaje) con accion en:
       "pulsar"  -> mandar do_punch
       "hecho"   -> el fichaje de este modo ya esta registrado: sin error
       "fallo"   -> no se puede fichar en este estado; NO se pulsa
 
-    Sin esta comprobacion, un --entry repetido con el boton ya en rojo
-    registraba una SALIDA a las 10 de la manana (y al reves).
+    GARANTIAS (no hay forma de saltarselas, ni con --test):
+      * La ENTRADA solo se registra entre 10:06:00 y 10:09:59.
+      * La SALIDA  solo se registra entre 18:06:00 y 18:10:59.
+      * Fuera de esa ventana NO se pulsa nunca, aunque el boton este en el
+        color que sea. Esto es lo que evita una salida a las 10 de la
+        manana: sin esta regla, un --entry repetido con el boton ya en
+        rojo registraba la salida, y un --exit suelto a cualquier hora
+        registraba salidas cuando quisiera.
+      * Cada dia como maximo dos fichajes: si ya hay 1, la entrada esta
+        hecha; si ya hay 2, la salida esta hecha.
 
-    Reglas (el primer fichaje del dia solo puede ser una entrada; el boton
-    queda verde otra vez cuando ya esta hecha la salida):
-      entrada: si hoy hay >= 1 fichaje, la entrada ya esta hecha.
-      salida : boton rojo -> toca salida; boton verde con >= 2 fichajes ->
-               la salida ya esta hecha; boton verde con menos -> falta la
-               entrada y no se ficha la salida.
+    'ahora' (segundos del dia) se pasa para poder testear sin reloj real.
     """
+    if ahora is None:
+        ahora = seconds_of_day(now_local())
     if mode not in ("entry", "exit"):
-        return "pulsar", ""
+        # Sin modo explicito (--test): se deduce del color del boton.
+        mode = "entry" if c_tip == "1" else "exit" if c_tip in ("2", "3") else ""
+
+    if mode not in ("entry", "exit"):
+        return "fallo", f"c_tip desconocido ({c_tip or 'vacio'}): no se ficha"
     if mode == "entry":
         if before >= 1:
             return "hecho", f"la entrada ya estaba registrada (hoy: {before})"
-        if c_tip == "1":
-            return "pulsar", ""
-        return "fallo", (f"el interruptor esta en SALIDA (c_tip={c_tip}) pero "
-                         f"hoy no hay ningun fichaje: estado incoherente")
-    # mode == "exit"
-    if c_tip in ("2", "3"):
+        if c_tip != "1":
+            return "fallo", (f"el boton esta en SALIDA (c_tip={c_tip}) con 0 "
+                             f"fichajes hoy: estado incoherente, no se ficha")
+        if not en_ventana("entry", ahora):
+            return "fallo", (f"fuera de la ventana {ENTRY_TXT}: la entrada "
+                             f"solo se registra ahi")
         return "pulsar", ""
+
+    # mode == "exit"
     if before >= 2:
         return "hecho", f"la salida ya estaba registrada (hoy: {before})"
-    if before == 1:
-        return "fallo", (f"el boton esta en ENTRADA y la entrada ya hecha "
-                         f"(1 fichaje hoy): pulsar duplicaria la entrada; "
-                         f"la salida no se puede pedir ahora")
-    return "fallo", (f"falta la entrada (0 fichajes hoy) con el boton en "
-                     f"ENTRADA: no se ficha la salida sin entrada")
+    if before == 0:
+        return "fallo", ("falta la entrada (0 fichajes hoy): no se ficha la "
+                         "salida sin entrada")
+    if c_tip not in ("2", "3"):
+        return "fallo", (f"el boton esta en ENTRADA (c_tip={c_tip}) con la "
+                         f"entrada ya hecha: pulsar duplicaria la entrada")
+    if not en_ventana("exit", ahora):
+        return "fallo", (f"fuera de la ventana {EXIT_TXT}: la salida solo se "
+                         f"registra ahi")
+    return "pulsar", ""
 
 def do_punch(s: Session, cusu: str, c_tip: str) -> str:
     _url, html = s.post(
@@ -499,7 +526,8 @@ def run_punch(mode: str = "", pulsar: bool = True) -> tuple:
             return False, "no se encontró c_tip en el portal; no se ficha a ciegas"
         log(f"[Estado] el interruptor dice: {que_toca} (c_tip={c_tip})")
 
-        accion, det = decidir(mode, c_tip, before)
+        accion, det = decidir(mode, c_tip, before,
+                              seconds_of_day(now_local()))
         if accion != "pulsar":
             log(f"[Estado] {accion}: {det}")
             return accion == "hecho", det

@@ -13,6 +13,12 @@ Todo ocurre en el móvil (Termux) y el móvil es el único que hace el fichaje.
 Cada día se sortea un segundo nuevo dentro de cada ventana. Nada se ficha
 antes de las 10:06 ni antes de las 18:06.
 
+**Ningún fichaje puede registrarse fuera de su rango**, y no es una
+costumbre del reloj: lo bloquea el propio programa (`decidir()`), en todos
+los modos, `--test` incluido. Si alguien lanzara `--exit` a las 10 de la
+mañana o a las 12:00, no se envía nada. Además cada día hay como mucho
+dos fichajes: con uno hecha la entrada está hecha, con dos la salida.
+
 **Periodo: hasta el 25/10/2026, incluido.** Ese día ficha y luego se apaga solo.
 
 ## Cómo funciona
@@ -22,9 +28,12 @@ antes de las 10:06 ni antes de las 18:06.
    los fichajes de hoy y el `c_tip` que Sigma pone en el formulario (1 = el
    botón está verde y toca ENTRADA; 2/3 = rojo y toca SALIDA).
 3. **Comprobar**: `decidir()` cruza el modo pedido (`--entry`/`--exit`) con
-   ese `c_tip` y el número de fichajes de hoy:
-   - coincide → se pulsa con el `c_tip` del portal;
+   ese `c_tip`, el número de fichajes de hoy **y la hora**:
+   - dentro de la ventana y coincide → se pulsa con el `c_tip` del portal;
    - el fichaje de ese modo ya está hecho → se da por bueno, sin error;
+   - **fuera de la ventana del modo (entrada 10:06–10:09:59, salida
+     18:06–18:10:59) → no se pulsa**, aunque el botón esté en el color
+     que sea;
    - no coincide (p. ej. un `--entry` con el botón ya en rojo) → **no se
      pulsa**, para nunca registrar una salida a las 10 de la mañana.
 4. **Fichar**: POST `c_usu` + `c_tip` (el leído) + `fic_subtipo=0` (horas
