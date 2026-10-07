@@ -7,20 +7,31 @@ Todo ocurre en el móvil (Termux) y el móvil es el único que hace el fichaje.
 
 | Fichaje | Ventana |
 |---|---|
-| **Entrada** | Segundo aleatorio entre **10:08:00 y 10:10:59** |
+| **Entrada** | Segundo aleatorio entre **10:06:00 y 10:09:59** |
 | **Salida** | Segundo aleatorio entre **18:06:00 y 18:10:59** |
 
 Cada día se sortea un segundo nuevo dentro de cada ventana. Nada se ficha
-antes de las 10:08 ni antes de las 18:06.
+antes de las 10:06 ni antes de las 18:06.
 
 **Periodo: hasta el 25/10/2026, incluido.** Ese día ficha y luego se apaga solo.
 
 ## Cómo funciona
 
 1. **Login**: POST `cf_usu` + `cf_pass` a `https://sigmatime.es/acceso.php` → cookie de sesión.
-2. **Portal**: GET `https://sigmatime.es/v2/portal-empleado.php` → extrae el hash `c_usu` y cuenta los fichajes de hoy.
-3. **Fichar**: POST `c_usu` + `c_tip=1` + `fic_subtipo=0` (horas ordinarias) + `btn_fichar`.
-4. **Verificar**: vuelve a leer el portal y comprueba que el contador de hoy subió en 1.
+2. **Portal**: GET `https://sigmatime.es/v2/portal-empleado.php` → extrae el hash `c_usu`,
+   los fichajes de hoy y el `c_tip` que Sigma pone en el formulario (1 = el
+   botón está verde y toca ENTRADA; 2/3 = rojo y toca SALIDA).
+3. **Comprobar**: `decidir()` cruza el modo pedido (`--entry`/`--exit`) con
+   ese `c_tip` y el número de fichajes de hoy:
+   - coincide → se pulsa con el `c_tip` del portal;
+   - el fichaje de ese modo ya está hecho → se da por bueno, sin error;
+   - no coincide (p. ej. un `--entry` con el botón ya en rojo) → **no se
+     pulsa**, para nunca registrar una salida a las 10 de la mañana.
+4. **Fichar**: POST `c_usu` + `c_tip` (el leído) + `fic_subtipo=0` (horas
+   ordinarias) + `btn_fichar`.
+5. **Verificar**: vuelve a leer el portal y comprueba que el contador de hoy
+   subió en 1 **y** que el interruptor cambió de color. Si no, se reintenta
+   dentro de la ventana.
 
 ## Reintentos
 
@@ -53,8 +64,8 @@ enseguida**: no se queda despierto.
 ```bash
 #!/data/data/com.termux/files/usr/bin/bash
 mkdir -p ~/bin
-termux-job-scheduler --job-id 77 --period 900000 --network any \
-  --force-schedule --script ~/bin/reloj.sh >> fichaje_boot.log 2>&1
+termux-job-scheduler --job-id 77 --period-ms 900000 --network any \
+  --persisted true --script ~/bin/reloj.sh >> fichaje_boot.log 2>&1
 exit 0
 ```
 
@@ -63,15 +74,18 @@ Android programa un trabajo cada 15 minutos. `~/bin/reloj.sh` mira la hora y hac
 
 | Se ejecuta a | Modo |
 |---|---|
-| 09:45–10:02 | `--entry` |
-| 17:45–18:02 | `--exit` |
+| 09:40–10:12 | `--entry` |
+| 17:50–18:12 | `--exit` |
 | cualquier otra hora | sale sin hacer nada |
+
+Las bandas arrancan antes de la ventana (09:46 ya está dentro) para que el
+proceso pueda esperar con el candado puesto hasta el segundo sorteado.
 
 Así el candado (`termux-wake-lock`) solo se toma durante el fichaje: **unos
 minutos al día en vez de ocho horas**. Android no permite programar más a menudo
 que cada 15 minutos, por eso el reloj usa ese periodo y decide con la hora.
 
-Si `termux-job-scheduler` no existiera, el arranqueAutomático no podría
+Si `termux-job-scheduler` no existiera, el arranque automático no podría
 programar nada y no habría fichaje.
 
 ### Paquete obligatorio
@@ -97,9 +111,14 @@ En **Termux** y en **Termux:Boot**:
 
 ## Credenciales
 
-Van solo en `config.json` **en el móvil**. Nunca en este repositorio.
-Si un día hay que volver a fijarlas, mira el paso 3 de la página de
-instrucciones.
+Van solo en `config.json` **en el móvil** (`~/config.json`), con esta forma:
+
+```json
+{"email": "TU-CORREO", "pass": "TU-CONTRASENA"}
+```
+
+La clave se llama `pass`, no `password`. Nunca en este repositorio. Si un día
+hay que volver a fijarlas, mira los pasos de la página de instrucciones.
 
 ## Ficheros
 
@@ -107,7 +126,6 @@ instrucciones.
 sigma_punch.py            el programa que hace el fichaje
 reloj.sh                  el reloj: cada 15 min, solo actúa si toca fichar
 sigma_boot.sh             arranque automático (va en ~/.termux/boot/sigma.sh)
-probe.py                  solo diagnóstico: enseña la web, no ficha
 instrucciones.html        la página con los pasos, se abre en el móvil
 cmd.html                  página auxiliar para copiar comandos
 INSTRUCCIONES.txt         los mismos pasos en texto plano

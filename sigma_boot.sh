@@ -4,6 +4,7 @@
 # El candado (wake lock) lo toma reloj.sh solo durante el fichaje, unos
 # minutos al dia, en vez de 8 horas.
 mkdir -p ~/bin
+cd $HOME
 
 # --job-id 77 sustituye el trabajo anterior con el mismo id, asi que
 # repetir esto en cada arranque es seguro. --persisted true hace que el

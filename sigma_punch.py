@@ -9,16 +9,16 @@ GitHub Actions.
 
 Uso:
   python3 sigma_punch.py           # modo diario: entrada + salida (para Pydroid)
-  python3 sigma_punch.py --entry   # entrada: aleatoria entre 10:05 y 10:08
-  python3 sigma_punch.py --exit    # salida:  segundo aleatorio en [18:00:00, 18:00:59]
+  python3 sigma_punch.py --entry   # entrada: aleatoria entre 10:06 y 10:09
+  python3 sigma_punch.py --exit    # salida:  aleatoria entre 18:06 y 18:10
   python3 sigma_punch.py --test    # fichar ya (para probar)
   python3 sigma_punch.py --check   # comprobar login y portal SIN fichar nada
   python3 sigma_punch.py --ver     # ver los fichajes de hoy (igual que en la web)
 
 Modo diario (Pydroid): sin argumentos ficha la entrada y luego la salida en la
 misma ejecución. Se lanza por la mañana y queda esperando todo el día. Si se
-lanza por la noche (después de las 18:02), espera hasta la entrada del día
-siguiente y ficha entrada y salida de ese día.
+lanza por la noche (después de que pasó la ventana de salida, 18:10:59), espera
+hasta la entrada del día siguiente y ficha entrada y salida de ese día.
 
 Variables de entorno:
   SIGMA_EMAIL, SIGMA_PASS          # credenciales de sigmatime.es (obligatorias)
@@ -123,8 +123,8 @@ def seconds_of_day(dt: datetime) -> int:
     return dt.hour * 3600 + dt.minute * 60 + dt.second
 
 # Ventanas de fichaje.
-#   Entrada: 10:00:00 - 10:02:59   (pedido: "entre las 10 y las 10.02")
-#   Salida : 18:00:00 - 18:02:59   (pedido: "entre 18 y 18.02")
+#   Entrada: 10:06:00 - 10:09:59
+#   Salida : 18:06:00 - 18:10:59
 # Dentro de cada ventana se sortea un segundo, para no fichar siempre igual.
 ENTRY_START = 10 * 3600 + 6 * 60       # 10:06:00
 ENTRY_SPAN = 239                        # -> hasta 10:09:59
@@ -135,11 +135,11 @@ ENTRY_TXT = "10:06:00-10:09:59"
 EXIT_TXT = "18:06:00-18:10:59"
 
 def target_entry() -> int:
-    """Segundo aleatorio uniforme en [10:00:00, 10:02:59]."""
+    """Segundo aleatorio uniforme en [10:06:00, 10:09:59]."""
     return ENTRY_START + random.randint(0, ENTRY_SPAN)
 
 def target_exit() -> int:
-    """Segundo aleatorio uniforme en [18:00:00, 18:02:59]."""
+    """Segundo aleatorio uniforme en [18:06:00, 18:10:59]."""
     return EXIT_START + random.randint(0, EXIT_SPAN)
 
 def wait_until(target_secs: int, label: str) -> None:
@@ -355,6 +355,45 @@ def estado_boton(html: str) -> tuple:
                  "3": "SALIDA (boton rojo)"}
     return ct, etiquetas.get(ct, f"c_tip={ct or 'desconocido'}")
 
+def decidir(mode: str, c_tip: str, before: int) -> tuple:
+    """Si hay que pulsar, segun el modo y el estado real del portal.
+
+    Devuelve (accion, mensaje) con accion en:
+      "pulsar"  -> mandar do_punch
+      "hecho"   -> el fichaje de este modo ya esta registrado: sin error
+      "fallo"   -> no se puede fichar en este estado; NO se pulsa
+
+    Sin esta comprobacion, un --entry repetido con el boton ya en rojo
+    registraba una SALIDA a las 10 de la manana (y al reves).
+
+    Reglas (el primer fichaje del dia solo puede ser una entrada; el boton
+    queda verde otra vez cuando ya esta hecha la salida):
+      entrada: si hoy hay >= 1 fichaje, la entrada ya esta hecha.
+      salida : boton rojo -> toca salida; boton verde con >= 2 fichajes ->
+               la salida ya esta hecha; boton verde con menos -> falta la
+               entrada y no se ficha la salida.
+    """
+    if mode not in ("entry", "exit"):
+        return "pulsar", ""
+    if mode == "entry":
+        if before >= 1:
+            return "hecho", f"la entrada ya estaba registrada (hoy: {before})"
+        if c_tip == "1":
+            return "pulsar", ""
+        return "fallo", (f"el interruptor esta en SALIDA (c_tip={c_tip}) pero "
+                         f"hoy no hay ningun fichaje: estado incoherente")
+    # mode == "exit"
+    if c_tip in ("2", "3"):
+        return "pulsar", ""
+    if before >= 2:
+        return "hecho", f"la salida ya estaba registrada (hoy: {before})"
+    if before == 1:
+        return "fallo", (f"el boton esta en ENTRADA y la entrada ya hecha "
+                         f"(1 fichaje hoy): pulsar duplicaria la entrada; "
+                         f"la salida no se puede pedir ahora")
+    return "fallo", (f"falta la entrada (0 fichajes hoy) con el boton en "
+                     f"ENTRADA: no se ficha la salida sin entrada")
+
 def do_punch(s: Session, cusu: str, c_tip: str) -> str:
     _url, html = s.post(
         f"{BASE_URL}/v2/portal-empleado.php",
@@ -424,13 +463,20 @@ def run_volcar():
             print("   *", txt[:700])
     return True, "ok"
 
-def run_punch():
+def run_punch(mode: str = "", pulsar: bool = True) -> tuple:
     """Intenta fichar una vez. NUNCA lanza excepciones.
 
     Un corte de internet (URLError/DNS) o cualquier fallo inesperado se
     devuelve como (False, motivo) para que punch_once reintente. Antes un
     error de red tumbaba el proceso entero y se perdian los dos fichajes
     del dia.
+
+    mode ("entry"/"exit"/"" para --test) decide si se pulsa o no: segun
+    decidir(), el boton solo se pulsa si el modo coincide con el color
+    del interruptor; si el fichaje ya esta hecho, devuelve (True, ...).
+
+    pulsar=False: solo consulta (para comprobar si el fichaje ya estaba
+    hecho sin arriesgarse a pulsar fuera de la ventana).
     """
     try:
         s = Session()
@@ -452,6 +498,13 @@ def run_punch():
         if not c_tip:
             return False, "no se encontró c_tip en el portal; no se ficha a ciegas"
         log(f"[Estado] el interruptor dice: {que_toca} (c_tip={c_tip})")
+
+        accion, det = decidir(mode, c_tip, before)
+        if accion != "pulsar":
+            log(f"[Estado] {accion}: {det}")
+            return accion == "hecho", det
+        if not pulsar:
+            return False, f"solo consulta: todavía no estaba hecho ({que_toca})"
 
         do_punch(s, cusu, c_tip)
 
@@ -527,11 +580,18 @@ def punch_once(mode: str, label: str) -> int:
     if mode != "test":
         wait_until(target, label)
 
-    # Si el movil despertó con la ventana ya cerrada (el reloj de Android a
-    # veces se retrasa), no se puede fichar a tiempo: se avisa en voz alta en
-    # vez de quedarse callado y que parezca que todo fue bien.
+    # Si el movil desperto con la ventana ya cerrada (el reloj de Android a
+    # veces se retrasa), NO se pega la prisa de alarmar: primero se comprueba
+    # sin pulsar si el fichaje ya estaba hecho. Si no, si que suena la alarma
+    # en vez de quedarse callado y que parezca que todo fue bien.
     if window_end is not None and seconds_of_day(now_local()) > window_end:
-        alarma(f"{label}: no se pudo fichar, la ventana {window_txt} ya paso")
+        ok, msg = run_punch(mode if mode in ("entry", "exit") else "",
+                            pulsar=False)
+        if ok:
+            log(f"[{label}] ventana {window_txt} pasada, pero {msg}")
+            return 0
+        alarma(f"{label}: no se pudo fichar, la ventana {window_txt} ya paso "
+                f"({msg})")
         return 1
 
     # Reintentos. Las ventanas son de 3 minutos, asi que se insiste mas a
@@ -545,7 +605,7 @@ def punch_once(mode: str, label: str) -> int:
             log(f"[{label}] fuera de la ventana {window_txt}, no se reintenta")
             break
         houve_uno = True
-        ok, msg = run_punch()
+        ok, msg = run_punch(mode if mode in ("entry", "exit") else "")
         ultimo = msg
         log(f"[{label}] intento {attempt}: {'OK' if ok else 'FALLO'} — {msg}")
         if ok:
@@ -553,7 +613,17 @@ def punch_once(mode: str, label: str) -> int:
         if attempt < intentos:
             time.sleep(delay)
 
-    # Se acabo la ventana sin fichar. Si fue por internet, delante y escandaloso.
+    # Se acabo la ventana sin fichar. Antes de alarmar se consulta una vez
+    # mas sin pulsar: si el ultimo pulso si se registro (y solo falto la
+    # verificacion), no se pita nada.
+    if window_end is not None:
+        ok, msg = run_punch(mode if mode in ("entry", "exit") else "",
+                            pulsar=False)
+        if ok:
+            log(f"[{label}] al final {msg}")
+            return 0
+
+    # Si fue por internet, delante y escandaloso.
     if houve_uno:
         if fallo_es_de_red(ultimo):
             alarma(f"{label}: sin internet. {ultimo[:90]}")
@@ -599,11 +669,11 @@ def run_forever() -> int:
 def run_daily() -> int:
     """Modo diario: entrada + salida en la misma ejecución.
 
-    Si se lanza después de las 18:02 (las ventanas de hoy ya pasaron),
+    Si se lanza después de que la ventana de salida ya pasó (18:10:59),
     espera hasta la entrada del día siguiente y ficha ese día.
     """
     now = now_local()
-    if seconds_of_day(now) > 18 * 3600 + 119:
+    if seconds_of_day(now) > EXIT_START + EXIT_SPAN:
         tomorrow = now + timedelta(days=1)
         target_dt = tomorrow.replace(hour=ENTRY_START // 3600,
                                      minute=(ENTRY_START % 3600) // 60,

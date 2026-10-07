@@ -15,7 +15,7 @@ echo "$(date '+%d/%m %H:%M:%S') reloj activo" >> fichaje_boot.log
 #
 # Las bandas arrancan ANTES de la ventana de fichaje: el reloj despertando a
 # las 09:56 es lo que permite esperar hasta las 10:09 con el candado puesto.
-#   entrada  fichar entre 10:08:00 y 10:10:59
+#   entrada  fichar entre 10:06:00 y 10:09:59
 #   salida   fichar entre 18:06:00 y 18:10:59
 case "$H" in
   09[45][0-9]|100[0-9]|101[0-2]) M=--entry ;;

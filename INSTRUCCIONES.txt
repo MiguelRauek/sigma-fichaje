@@ -9,7 +9,7 @@ https://miguelrauek.github.io/sigma-fichaje/instrucciones.html
 
 HORARIOS
 --------
-   Entrada:  entre 10:08:00 y 10:10:59  (segundo al azar)
+   Entrada:  entre 10:06:00 y 10:09:59  (segundo al azar)
    Salida :  entre 18:06:00 y 18:10:59  (segundo al azar)
    Hasta el 25/10/2026, incluido. Ese día ficha y se apaga.
 
@@ -32,10 +32,11 @@ HORARIOS
 
    {
      "email": "TU-CORREO",
-     "password": "TU-CONTRASENA"
+     "pass": "TU-CONTRASENA"
    }
 
-   Guardar con CTRL+O y salir con CTRL+X.
+   OJO: la clave se llama "pass", no "password". Guardar con CTRL+O y
+   salir con CTRL+X.
 
 5. Permisos en el móvil (Termux y Termux:Boot):
    - Batería: Sin restricciones
@@ -47,13 +48,17 @@ HORARIOS
 
    curl -fsSL -o sigma_punch.py https://raw.githubusercontent.com/MiguelRauek/sigma-fichaje/main/sigma_punch.py
    curl -fsSL -o reloj.sh        https://raw.githubusercontent.com/MiguelRauek/sigma-fichaje/main/reloj.sh
+   curl -fsSL -o sigma_boot.sh   https://raw.githubusercontent.com/MiguelRauek/sigma-fichaje/main/sigma_boot.sh
 
-7. Crear el arranque automático:
+7. Colocar el reloj y crear el arranque automático:
 
    mkdir -p ~/bin ~/.termux/boot
    mv reloj.sh ~/bin/reloj.sh
-   curl -fsSL -o ~/.termux/boot/sigma.sh https://raw.githubusercontent.com/MiguelRauek/sigma-fichaje/main/sigma_boot.sh
+   cp sigma_boot.sh ~/.termux/boot/sigma.sh
    chmod +x ~/bin/reloj.sh ~/.termux/boot/sigma.sh
+   cat ~/.termux/boot/sigma.sh
+
+   Debe mostrar --period-ms 900000 y ~/bin/reloj.sh.
 
 8. Reiniciar el móvil. El arranque solo programa el reloj y se apaga:
    no mantiene el móvil despierto. El candado se toma únicamente durante
@@ -63,19 +68,23 @@ HORARIOS
 COMPROBAR QUE ESTÁ FUNCIONANDO
 ------------------------------
 
-Ver que el reloj quedó programado:
+Ver que el reloj late (una línea cada 15 minutos):
 
-  termux-job-scheduler --list
+  tail -5 ~/fichaje_boot.log
+
+Probar login y portal SIN fichar nada:
+
+  python sigma_punch.py --check
+
+Ver los fichajes que hay ahora mismo en la web, sin fichar nada:
+
+  python sigma_punch.py --ver
 
 Ver el log de hoy:
 
   grep "$(date +%F)" fichaje.log
 
 Lo bueno es ver líneas "intento" y luego "OK".
-
-Ver los fichajes que hay ahora mismo en la web, sin fichar nada:
-
-  python sigma_punch.py --ver
 
 
 SI SUENA LA ALARMA

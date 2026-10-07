@@ -1,0 +1,2 @@
+# Días en los que NO se hace el fichaje automático (formato DD/MM/YYYY, uno por línea)
+25/09/2026

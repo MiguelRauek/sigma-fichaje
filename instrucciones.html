@@ -68,9 +68,9 @@
   <h1>📋 Fichaje · puesta en marcha</h1>
   <p class="sub">Pulsa cada botón para copiar y pega en <b>Termux</b>.</p>
   <div class="grid">
-    <div class="cell"><span>Entrada</span><b>10:05–10:08</b></div>
-    <div class="cell"><span>Salida</span><b>18:00</b></div>
-    <div class="cell"><span>Hasta el</span><b>27/10/2026</b></div>
+    <div class="cell"><span>Entrada</span><b>10:06–10:09</b></div>
+    <div class="cell"><span>Salida</span><b>18:06–18:10</b></div>
+    <div class="cell"><span>Hasta el</span><b>25/10/2026</b></div>
     <div class="cell"><span>Tu Smartphone</span><b>07:30</b></div>
   </div>
 </header>
@@ -78,29 +78,36 @@
 <div id="app"></div>
 
 <footer>
-  <span class="tag">ENTRADA 10:05:00→10:08:59</span><span class="tag">SALIDA 18:00:00→18:00:59</span><br><br>
-  Modo permanente: se relanza solo cada día y se apaga el 27/10/2026.
+  <span class="tag">ENTRADA 10:06:00→10:09:59</span><span class="tag">SALIDA 18:06:00→18:10:59</span><br><br>
+  El reloj se programa solo cada 15 minutos y el fichaje se apaga el 25/10/2026.
 </footer>
 
 <script>
 const STEPS = [
-  { n:1, t:"Bajar el script nuevo", note:"Hazlo en Termux, en el móvil. Pega y dale a Enter.",
+  { n:1, t:"Bajar los tres ficheros", note:"Hazlo en Termux, en el móvil. Pega y dale a Enter.",
     cmds:[
-      'curl -fsSL -o sigma_punch.py "https://raw.githubusercontent.com/MiguelRauek/sigma-fichaje/main/sigma_punch.py?x=8"'
+      'curl -fsSL -o sigma_punch.py "https://raw.githubusercontent.com/MiguelRauek/sigma-fichaje/main/sigma_punch.py?x=9"',
+      'curl -fsSL -o reloj.sh "https://raw.githubusercontent.com/MiguelRauek/sigma-fichaje/main/reloj.sh?x=9"',
+      'curl -fsSL -o sigma_boot.sh "https://raw.githubusercontent.com/MiguelRauek/sigma-fichaje/main/sigma_boot.sh?x=9"'
     ]},
   { n:2, t:"Comprobar que es la versión nueva", note:"Debe imprimir 1.",
-    cmds:['grep -c "27/10/2026" sigma_punch.py']},
-  { n:3, t:"Instalar Termux:Boot", note:"Instálala desde el <b>navegador del móvil</b> (Chrome), no desde Termux. ⚠️ Imprescindible: ábrela una vez al instalarla y ciérrala, si no Android no la ejecuta nunca.",
+    cmds:['grep -c "25/10/2026" sigma_punch.py']},
+  { n:3, t:"Instalar el paquete de comandos", note:"DENTRO de Termux. Trae el reloj que programa los fichajes y la alarma. Si falta esto NO se ficha ni suena la alarma.",
+    cmds:['pkg install termux-api']},
+  { n:4, t:"Crear config.json con tus credenciales", note:"⚠️ La clave se llama <b>pass</b>, no password. Pega, dale Enter y en <b>nano</b> sustituye TU-CORREO y TU-CONTRASENA. Guarda con Ctrl+O, Enter, Ctrl+X.",
+    cmds:['printf \'{"email":"TU-CORREO","pass":"TU-CONTRASENA"}\' > ~/config.json && nano ~/config.json']},
+  { n:5, t:"Instalar Termux:Boot", note:"Instálala desde el <b>navegador del móvil</b> (Chrome), no desde Termux. ⚠️ Imprescindible: ábrela una vez al instalarla y ciérrala, si no Android no la ejecuta nunca.",
     links:[{txt:"Abrir Termux:Boot en F-Droid ↗", url:"https://f-droid.org/packages/com.termux.boot/"}]},
-  { n:4, t:"Permisos (en Ajustes, no es un comando)", note:"Ajustes › Apps › <b>Termux:Boot</b> → Autoarranque ON + Batería «Sin restricciones». Luego igual para <b>Termux</b>."},
-  { n:5, t:"Crear el arranque automático", note:"⚠️ Pégalo en <b>Termux</b> (icono negro <b>&gt;_</b>), NO en Pydroid. Es un solo comando que lo hace todo.",
+  { n:6, t:"Permisos (en Ajustes, no es un comando)", note:"Ajustes › Apps › <b>Termux:Boot</b> → Autoarranque ON + Batería «Sin restricciones». Luego igual para <b>Termux</b>."},
+  { n:7, t:"Colocar el reloj y el arranque automático", note:"⚠️ Pégalo en <b>Termux</b> (icono negro <b>&gt;_</b>), NO en Pydroid. Mueve el reloj a ~/bin y deja el arranque en ~/.termux/boot.",
     cmds:[
-      'mkdir -p ~/.termux/boot && printf \'#!/data/data/com.termux/files/usr/bin/bash\\ncd $HOME\\nexec python sigma_punch.py --forever >> fichaje_boot.log 2>&1\\n\' > ~/.termux/boot/sigma.sh && chmod +x ~/.termux/boot/sigma.sh && echo "== PASO 5 HECHO ==" && cat ~/.termux/boot/sigma.sh'
+      'mkdir -p ~/bin ~/.termux/boot && mv reloj.sh ~/bin/reloj.sh && cp sigma_boot.sh ~/.termux/boot/sigma.sh && chmod +x ~/bin/reloj.sh ~/.termux/boot/sigma.sh && echo "== PASO 7 HECHO ==" && cat ~/.termux/boot/sigma.sh'
     ]},
-  { n:6, t:"Verificar que quedó bien", note:"Debe mostrar la cabecera bash y la línea con --forever.",
+  { n:8, t:"Verificar que quedó bien", note:"Debe mostrar <b>--period-ms 900000</b> y la ruta <b>~/bin/reloj.sh</b>.",
     cmds:['cat ~/.termux/boot/sigma.sh']},
-  { n:7, t:"Comprobar que el script funciona", note:"Verás «objetivo: 10:0X:XX». Se queda esperando: déjalo ahí.",
-    cmds:['python sigma_punch.py --check']}
+  { n:9, t:"Probar el login sin fichar nada", note:"Debe decir «login OK» y los fichajes de hoy. NO ficha nada.",
+    cmds:['python sigma_punch.py --check']},
+  { n:10, t:"Reiniciar el móvil", note:"Al arrancar, Termux:Boot programa el reloj cada 15 minutos y se apaga: no mantiene el móvil despierto."}
 ];
 
 function render(){
@@ -130,9 +137,9 @@ function render(){
   });
   const f = document.createElement('div'); f.className='step';
   f.innerHTML = '<div class="hd"><div class="n" style="background:var(--acc)">✓</div><h2>Ya está</h2></div>'
-    + '<div class="ok">El móvil se apaga a las 00:30 y se enciende a las 07:30. A partir de ahí el script '
-    + 'arranca solo, ficha todos los días y se apaga el <b>27/10/2026</b>. No tienes que hacer nada más.</div>'
-    + '<div class="tip">Si un día quieres comprobarlo: <b>cat fichaje.log</b> · Para pausar un día, '
+    + '<div class="ok">El móvil se enciende a las 07:30 y se apaga a las 02:00. A partir de ahí el reloj '
+    + 'ficha la <b>entrada entre 10:06 y 10:09</b> y la <b>salida entre 18:06 y 18:10</b>, solo, y se apaga el <b>25/10/2026</b>. No tienes que hacer nada más.</div>'
+    + '<div class="tip">Si un día quieres comprobarlo: <b>grep "$(date +%F)" fichaje.log</b> · Ver que el reloj late: <b>tail -3 ~/fichaje_boot.log</b> · Para pausar un día, '
     + 'añade la fecha (DD/MM/AAAA) en <b>skip_dates.txt</b>.</div>';
   app.appendChild(f);
 }

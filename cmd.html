@@ -25,32 +25,67 @@ b{color:#4ade80}
 <button id="c">Copiar</button>
 <script>
 var txt = '';
-try { var h = location.hash.replace(/^#/, ''); if (h) txt = decodeURIComponent(h); } catch (e) {}
+try {
+  var h = location.hash.replace(/^#/, '');
+  if (h) {
+    try { txt = decodeURIComponent(h); }
+    catch (e) { txt = unescape(h); }   // hash mal codificado: al menos a medias
+  }
+} catch (e) {}
+if (txt) { txt = txt.replace(/\r\n/g, '\n'); }
+
 var st = document.getElementById('st');
-document.getElementById('txt').textContent = txt || '(vacio)';
-document.getElementById('c').onclick = function () { copiar(); };
+document.getElementById('txt').textContent = txt || '(sin comando en el enlace)';
 
 function exito() { st.className = 'st'; st.innerHTML = '&#10003; COPIADO<br><span style="font-weight:400;font-size:14px">Abre Termux y pega</span>'; }
-function fallo()  { st.className = 'st no'; st.innerHTML = 'Toca <b>Copiar</b><br><span style="font-weight:400;font-size:14px">y luego pega en Termux</span>'; }
-function manual() {
-  var box = document.getElementById('txt');
-  var r = document.createRange(); r.selectNodeContents(box);
-  var s = getSelection(); s.removeAllRanges(); s.addRange(r);
-  try { if (document.execCommand('copy')) { exito(); return; } } catch (e) {}
-  fallo();
-}
-function copiar() {
-  if (!txt) { st.className = 'st no'; st.textContent = 'Sin comando'; return; }
-  if (!navigator.clipboard || !navigator.clipboard.writeText) { manual(); return; }
-  navigator.clipboard.writeText(txt).then(exito, manual);
+function fallo()  { st.className = 'st no'; st.innerHTML = 'Mantén pulsado el texto de arriba y elige <b>Copiar</b><br><span style="font-weight:400;font-size:14px">y luego pega en Termux</span>'; }
+
+// El truco: copiar desde un <textarea> con foco, que es lo unico que
+// execCommand copia de forma fiable en el navegador del movil.
+function legacy(text, cb) {
+  var ta = document.createElement('textarea');
+  ta.value = text;
+  ta.setAttribute('readonly', '');
+  ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0';
+  document.body.appendChild(ta);
+  ta.focus(); ta.select();
+  try { ta.setSelectionRange(0, text.length); } catch (e) {}
+  var ok = false;
+  try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+  document.body.removeChild(ta);
+  cb(ok);
 }
 
+function manual() {
+  // Selecciona el pre para que el usuario pueda copiar a mano.
+  var box = document.getElementById('txt');
+  try {
+    var r = document.createRange(); r.selectNodeContents(box);
+    var s = getSelection(); s.removeAllRanges(); s.addRange(r);
+  } catch (e) {}
+  fallo();
+}
+
+function copiar() {
+  if (!txt) { st.className = 'st no'; st.textContent = 'Sin comando: abre este enlace desde el botón de Telegram'; return; }
+  legacy(txt, function (ok) {
+    if (ok) { exito(); return; }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(exito, manual);
+    } else {
+      manual();
+    }
+  });
+}
+
+document.getElementById('c').onclick = function () { copiar(); };
+
+// Intento automatico (solo funciona si el navegador lo permite sin tocar).
 copiar();
 window.addEventListener('load', function () { setTimeout(copiar, 300); });
 document.addEventListener('visibilitychange', function () {
   if (!document.hidden) { setTimeout(copiar, 200); }
 });
-document.addEventListener('touchstart', function () { setTimeout(copiar, 100); }, {passive:true});
 </script>
 </body>
 </html>

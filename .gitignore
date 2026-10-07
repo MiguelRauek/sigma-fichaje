@@ -1,0 +1,8 @@
+# Nunca subir esto al repositorio
+config.json
+portal.html
+fichaje.log
+fichaje_boot.log
+fichaje.lock
+__pycache__/
+*.pyc
