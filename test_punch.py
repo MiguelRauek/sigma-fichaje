@@ -67,6 +67,18 @@ check("en_ventana exit 18:10:00", sp.en_ventana("exit", 65400), False)
 check("en_ventana exit 18:11:00", sp.en_ventana("exit", 65460), False)
 check("en_ventana exit a las 10:07", sp.en_ventana("exit", 36420), False)
 
+# el segundo de fichaje nunca termina en :00 (10:07:00 no se usa)
+viol = []
+for _ in range(5000):
+    for f, a, b in ((sp.target_entry, sp.ENTRY_START,
+                     sp.ENTRY_START + sp.ENTRY_SPAN),
+                    (sp.target_exit, sp.EXIT_START,
+                     sp.EXIT_START + sp.EXIT_SPAN)):
+        t = f()
+        if not (a <= t <= b and t % 60 != 0):
+            viol.append((f.__name__, t))
+check("5000 tiradas: nunca en punto (:00) y dentro de la ventana", viol, [])
+
 # --- 2. helpers de HTML --------------------------------------------------
 today = sp.now_local().strftime("%d/%m/%Y")
 verde = (f'<input type="hidden" name="c_tip" value="1">'

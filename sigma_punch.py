@@ -138,13 +138,22 @@ EXIT_SPAN = 239                        # -> hasta 18:09:59
 ENTRY_TXT = "10:06:00-10:09:59"
 EXIT_TXT = "18:06:00-18:09:59"
 
+def _segundo_ventana(inicio: int, span: int) -> int:
+    """Segundo aleatorio en [inicio, inicio+span], nunca en punto (:00).
+
+    El segundo 0 de cada minuto queda fuera: 10:07:00, 18:06:00, etc.
+    nunca se usan como hora de fichaje.
+    """
+    permitidos = [s for s in range(span + 1) if (inicio + s) % 60 != 0]
+    return inicio + random.choice(permitidos)
+
 def target_entry() -> int:
-    """Segundo aleatorio uniforme en [10:06:00, 10:09:59]."""
-    return ENTRY_START + random.randint(0, ENTRY_SPAN)
+    """Segundo aleatorio en [10:06:00, 10:09:59], nunca en punto (:00)."""
+    return _segundo_ventana(ENTRY_START, ENTRY_SPAN)
 
 def target_exit() -> int:
-    """Segundo aleatorio uniforme en [18:06:00, 18:09:59]."""
-    return EXIT_START + random.randint(0, EXIT_SPAN)
+    """Segundo aleatorio en [18:06:00, 18:09:59], nunca en punto (:00)."""
+    return _segundo_ventana(EXIT_START, EXIT_SPAN)
 
 def wait_until(target_secs: int, label: str) -> None:
     """Espera hasta que la hora local alcance target_secs (en tramos de 60 s)."""

@@ -10,6 +10,9 @@ Todo ocurre en el móvil (Termux) y el móvil es el único que hace el fichaje.
 | **Entrada** | Segundo aleatorio entre **10:06:00 y 10:09:59** |
 | **Salida** | Segundo aleatorio entre **18:06:00 y 18:09:59** |
 
+El segundo nunca es en punto: `10:07:00`, `18:06:00`, etc. no se usan
+(siempre `:01`–`:59`).
+
 Cada día se sortea un segundo nuevo dentro de cada ventana. Nada se ficha
 antes de las 10:06 ni antes de las 18:06.
 
