@@ -140,8 +140,22 @@ instrucciones.html        la página con los pasos, se abre en el móvil
 cmd.html                  página auxiliar para copiar comandos
 INSTRUCCIONES.txt         los mismos pasos en texto plano
 skip_dates.txt            días que no se ficha (uno por línea, dd/mm/aaaa)
-.github/workflows/pages.yml   publica la página de instrucciones
+test_docs.py              los rangos siguen iguales en codigo y docs
+test_punch.py             tests de decidir()/punch_once (sin red)
+.github/workflows/pages.yml   publica la página y ejecuta los tests
 ```
+
+## Tests
+
+Dos scripts sin red ni credenciales, en el repo y en el CI:
+
+```bash
+python3 test_docs.py   # los rangos siguen iguales en el codigo y en los docs
+python3 test_punch.py  # decidir()/punch_once: 21 comprobaciones
+```
+
+Si alguno falla, `pages.yml` **no despliega** la página de instrucciones
+(el paso de tests va antes de publicar).
 
 ## Notas
 
@@ -150,6 +164,7 @@ skip_dates.txt            días que no se ficha (uno por línea, dd/mm/aaaa)
   dejó el fichaje parado durante días; ahora hay pruebas que lo cubren.
 - `fichaje.lock` impide que dos procesos fichen a la vez (el reloj y una
   ejecución manual nunca se pisan).
-- No hay cron ni GitHub Actions: el histórico de acciones automáticas se
+- El fichaje **nunca** corre en GitHub Actions: solo ahí se publica la
+  página y se ejecutan los tests. El histórico de acciones automáticas se
   eliminó porque usaban un horario viejo (9:30) y guardaban las credenciales
   del hotel como secretos del repositorio.
