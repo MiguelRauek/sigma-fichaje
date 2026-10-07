@@ -87,7 +87,8 @@ Android programa un trabajo cada 15 minutos. `~/bin/reloj.sh` mira la hora y hac
 | 17:50–18:12 | `--exit` |
 | cualquier otra hora | sale sin hacer nada |
 
-Las bandas arrancan antes de la ventana (09:46 ya está dentro) para que el
+Las bandas arrancan antes de la ventana (desde 09:40 ya está dentro) para que
+el
 proceso pueda esperar con el candado puesto hasta el segundo sorteado.
 
 Así el candado (`termux-wake-lock`) solo se toma durante el fichaje: **unos
