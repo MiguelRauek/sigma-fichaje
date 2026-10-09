@@ -81,6 +81,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 LOG_PATH = os.path.join(SCRIPT_DIR, "fichaje.log")
 LOCK_PATH = os.path.join(SCRIPT_DIR, "fichaje.lock")
 ALARM_MARKER = os.path.join(SCRIPT_DIR, "alarma_hoy.txt")
+WAKE_COUNT = os.path.join(SCRIPT_DIR, "wake_count.txt")
 TMP_DIR = os.environ.get("TMPDIR", "/data/data/com.termux/files/usr/tmp")
 
 # Último día del modo permanente (DD/MM/AAAA). Vacío = sin límite.
@@ -670,6 +671,10 @@ def punch_once(mode: str, label: str) -> int:
     log(f"[{label}] objetivo: {target_dt.strftime('%H:%M:%S')} ({TZ})")
 
     if mode != "test":
+        # Candado de pantalla DURANTE la espera: sin el, Android duerme el
+        # movil y congela el proceso (fallo del 09/10). Es global, asi que
+        # se cuenta cuantos procesos esperan y solo el ultimo lo suelta.
+        wake_lock()
         wait_until(target, label)
 
     # Cerrojo SOLO para la fase de pulsar (no durante la espera): si un
@@ -744,6 +749,8 @@ def punch_once(mode: str, label: str) -> int:
     finally:
         if bloqueado:
             release_lock()
+        if mode != "test":
+            wake_unlock()
 
 def run_forever() -> int:
     """Modo permanente: ficha entrada y salida todos los días, solo.
@@ -835,6 +842,58 @@ def release_lock() -> None:
         os.remove(LOCK_PATH)
     except OSError:
         pass
+
+def _pid_vivo(pid: int) -> bool:
+    """True si el proceso 'pid' sigue existiendo."""
+    try:
+        os.kill(pid, 0)  # solo comprueba si existe, no señal
+        return True
+    except OSError:
+        return False
+
+def _leer_wake() -> tuple:
+    """(pid dueno, timestamp, contador) del candado de pantalla, o (0, 0, 0)."""
+    try:
+        with open(WAKE_COUNT, "r", encoding="utf-8") as f:
+            pid, ts, n = f.read().split()
+            return int(pid), float(ts), int(n)
+    except (OSError, ValueError):
+        return 0, 0.0, 0
+
+def _escribir_wake(pid: int, ts: float, n: int) -> None:
+    try:
+        with open(WAKE_COUNT, "w", encoding="utf-8") as f:
+            f.write(f"{pid} {ts:.0f} {n}")
+    except OSError:
+        pass
+
+def wake_lock() -> None:
+    """Toma el candado de pantalla (termux-wake-lock) con contador.
+
+    El candado de Termux es GLOBAL, no por proceso: si un proceso hace
+    termux-wake-unlock suelta el de todos (por eso el 09/10 la job de las
+    09:57 solto el candado de la de las 09:43 y el movil se durmio). Aqui
+    se cuenta cuantos procesos estan esperando y solo el ultimo en terminar
+    lo suelta. Si el dueno anterior murio, este proceso toma el relevo.
+    """
+    pid, ts, n = _leer_wake()
+    if pid and _pid_vivo(pid):
+        _escribir_wake(pid, ts, n + 1)
+        return
+    _sh("termux-wake-lock")
+    _escribir_wake(os.getpid(), time.time(), 1)
+
+def wake_unlock() -> None:
+    """Suelta el candado de pantalla solo si es el ultimo proceso esperando."""
+    pid, ts, n = _leer_wake()
+    if n <= 1:
+        _sh("termux-wake-unlock")
+        try:
+            os.remove(WAKE_COUNT)
+        except OSError:
+            pass
+    else:
+        _escribir_wake(pid, ts, n - 1)
 
 def main() -> int:
     if "--entry" in sys.argv:

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Tests offline del fix: decidir() + punch_once (sin red, sin credenciales)."""
+import os
 import sys
 import tempfile
 from datetime import datetime
@@ -12,6 +13,7 @@ import sigma_punch as sp
 sp.LOG_PATH = str(Path(tempfile.gettempdir()) / "fichaje-test.log")
 sp.LOCK_PATH = str(Path(tempfile.gettempdir()) / "fichaje-test.lock")
 sp.ALARM_MARKER = str(Path(tempfile.gettempdir()) / "fichaje-test-alarma.txt")
+sp.WAKE_COUNT = str(Path(tempfile.gettempdir()) / "fichaje-test-wake.txt")
 
 fails = []
 
@@ -164,6 +166,28 @@ sp.acquire_lock = lambda: False
 fijar_hora(10, 10, 0)
 check("G cerrojo ocupado al cerrarse la ventana", sp._esperar_cerrojo(36599), False)
 sp.acquire_lock = orig_acquire
+
+# H) candado de pantalla: contador compartido (bug del 09/10)
+# El candado de Termux es global: si una job corta hace termux-wake-unlock
+# suelta el de las demas. Con el contador solo lo suelta el ultimo proceso.
+try:
+    os.remove(sp.WAKE_COUNT)
+except OSError:
+    pass
+sh_calls = []
+orig_sh = sp._sh
+sp._sh = lambda *a, **k: sh_calls.append(a[0]) or True
+sp.wake_lock()                        # n=1 -> enciende
+check("H wake_lock enciende", sh_calls, ["termux-wake-lock"])
+sp.wake_lock()                        # n=2 -> no repite
+check("H segundo wake_lock no repite", sh_calls, ["termux-wake-lock"])
+sp.wake_unlock()                      # n=1 -> NO suelta
+check("H primer unlock no suelta", sh_calls, ["termux-wake-lock"])
+sp.wake_unlock()                      # n=0 -> suelta
+check("H ultimo unlock suelta", sh_calls,
+      ["termux-wake-lock", "termux-wake-unlock"])
+check("H contador limpio", sp._leer_wake(), (0, 0.0, 0))
+sp._sh = orig_sh
 
 print()
 if fails:

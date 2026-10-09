@@ -15,9 +15,11 @@ echo "$(date '+%d/%m %H:%M:%S') reloj activo" >> fichaje_boot.log
 #
 # Las bandas arrancan ANTES de la ventana de fichaje: el reloj despertando a
 # las 09:56 es lo que permite esperar hasta las 10:09. El candado de pantalla
-# (termux-wake-lock) mantiene el movil despierto durante la espera; si falta
-# termux-api, el movil se duerme y el proceso se congela (fallo del 09/10/2026:
-# la entrada no se ficho y la alarma tampoco sonó).
+# lo gestiona sigma_punch.py (termux-wake-lock con contador): aqui NO se toca,
+# porque el candado de Termux es global y un termux-wake-unlock de una job
+# corta suelta el de las demas (fallo del 09/10/2026: la job de las 09:57
+# solto el candado de la de las 09:43, el movil se durmio y la entrada no se
+# ficho). Si falta termux-api, el movil se duerme igualmente.
 #   entrada  fichar entre 10:06:00 y 10:09:59
 #   salida   fichar entre 18:06:00 y 18:09:59
 case "$H" in
@@ -26,8 +28,5 @@ case "$H" in
   *) exit 0 ;;
 esac
 
-# Solo ahora toma el candado, y lo suelta al terminar.
-termux-wake-lock
 python sigma_punch.py "$M" >> fichaje_boot.log 2>&1
-termux-wake-unlock
 exit 0

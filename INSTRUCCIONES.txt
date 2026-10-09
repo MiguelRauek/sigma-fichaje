@@ -68,8 +68,12 @@ HORARIOS
    Debe mostrar --period-ms 900000 y ~/bin/reloj.sh.
 
 8. Reiniciar el móvil. El arranque solo programa el reloj y se apaga:
-   no mantiene el móvil despierto. El candado se toma únicamente durante
-   el fichaje, unos minutos al día.
+   no mantiene el móvil despierto. El candado de pantalla lo gestiona
+   sigma_punch.py con contador (wake_count.txt): solo el último proceso
+   en terminar lo suelta, porque el candado de Termux es global y una job
+   corta que hiciera termux-wake-unlock soltaba el de las demás (fallo
+   del 09/10/2026). Se toma únicamente durante el fichaje, unos minutos
+   al día.
 
 
 COMPROBAR QUE ESTÁ FUNCIONANDO

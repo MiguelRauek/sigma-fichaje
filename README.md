@@ -101,6 +101,12 @@ el proceso pueda esperar hasta el segundo sorteado. El candado de pantalla
 (`termux-wake-lock`) mantiene el móvil despierto durante esa espera; si falta
 `termux-api`, el móvil se duerme y el proceso se congela (fallo del 09/10/2026).
 
+El candado de pantalla lo gestiona `sigma_punch.py` con un **contador**
+(`wake_count.txt`): el candado de Termux es global, no por proceso, y una job
+corta que hiciera `termux-wake-unlock` soltaba el candado de las demás (la job
+de las 09:57 soltó el de las 09:43 y el móvil se durmió). Ahora solo el último
+proceso en terminar lo suelta, y `reloj.sh` ya no lo toca.
+
 El cerrojo de fichaje (`fichaje.lock`) **solo se toma al pulsar**, no durante
 la espera: varios procesos pueden esperar a la vez y, si uno se congela, otro
 ficha. Así el candado de pantalla solo se toma durante el fichaje: **unos
