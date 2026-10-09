@@ -14,7 +14,10 @@ echo "$(date '+%d/%m %H:%M:%S') reloj activo" >> fichaje_boot.log
 # ningun patron, y la entrada se queda sin hacer. No hacerlo.
 #
 # Las bandas arrancan ANTES de la ventana de fichaje: el reloj despertando a
-# las 09:56 es lo que permite esperar hasta las 10:09 con el candado puesto.
+# las 09:56 es lo que permite esperar hasta las 10:09. El candado de pantalla
+# (termux-wake-lock) mantiene el movil despierto durante la espera; si falta
+# termux-api, el movil se duerme y el proceso se congela (fallo del 09/10/2026:
+# la entrada no se ficho y la alarma tampoco sonó).
 #   entrada  fichar entre 10:06:00 y 10:09:59
 #   salida   fichar entre 18:06:00 y 18:09:59
 case "$H" in

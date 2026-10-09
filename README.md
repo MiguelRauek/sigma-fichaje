@@ -61,12 +61,18 @@ Nunca se reintenta fuera de la ventana.
 
 | Fallo | Qué pasa |
 |---|---|
-| **Sin internet / DNS** | 🔊 Suena el tono de alarma del móvil en bucle, dos veces, y sale un cartel |
-| Otro motivo (web, hash) | 🔕 Solo un cartel en pantalla |
+| **Sin internet / DNS** | 🔊 Suena el tono de alarma del móvil en bucle, dos veces, sale un cartel y llega un mensaje a Telegram |
+| **Ventana pasada sin fichar** (móvil dormido) | 🔊 Igual: alarma + cartel + Telegram |
+| Otro motivo (web, hash) | 🔕 Cartel en pantalla + mensaje a Telegram |
 
 El pitido se busca en los sonidos de alarma del sistema; si el móvil no tiene
 ninguno, el propio programa genera un WAV de tres pitidos agudos y lo reproduce.
 El objetivo es enterarse el mismo día, no al siguiente.
+
+El mensaje a Telegram necesita `telegram_token` y `telegram_chat_id` en
+`config.json` (opcionales pero recomendados): aunque el sonido no se oiga,
+el mensaje llega. La alarma solo avisa una vez por día y modo (varios
+procesos congelados que despiertan tarde no la repiten).
 
 ## Arranque automático y batería
 
@@ -91,10 +97,13 @@ Android programa un trabajo cada 15 minutos. `~/bin/reloj.sh` mira la hora y hac
 | cualquier otra hora | sale sin hacer nada |
 
 Las bandas arrancan antes de la ventana (desde 09:40 ya está dentro) para que
-el
-proceso pueda esperar con el candado puesto hasta el segundo sorteado.
+el proceso pueda esperar hasta el segundo sorteado. El candado de pantalla
+(`termux-wake-lock`) mantiene el móvil despierto durante esa espera; si falta
+`termux-api`, el móvil se duerme y el proceso se congela (fallo del 09/10/2026).
 
-Así el candado (`termux-wake-lock`) solo se toma durante el fichaje: **unos
+El cerrojo de fichaje (`fichaje.lock`) **solo se toma al pulsar**, no durante
+la espera: varios procesos pueden esperar a la vez y, si uno se congela, otro
+ficha. Así el candado de pantalla solo se toma durante el fichaje: **unos
 minutos al día en vez de ocho horas**. Android no permite programar más a menudo
 que cada 15 minutos, por eso el reloj usa ese periodo y decide con la hora.
 
@@ -127,10 +136,13 @@ En **Termux** y en **Termux:Boot**:
 Van solo en `config.json` **en el móvil** (`~/config.json`), con esta forma:
 
 ```json
-{"email": "TU-CORREO", "pass": "TU-CONTRASENA"}
+{"email": "TU-CORREO", "pass": "TU-CONTRASENA",
+ "telegram_token": "TU-TOKEN-DEL-BOT", "telegram_chat_id": "TU-CHAT-ID"}
 ```
 
-La clave se llama `pass`, no `password`. Nunca en este repositorio. Si un día
+La clave se llama `pass`, no `password`. `telegram_token` y `telegram_chat_id`
+son opcionales: activan el aviso por Telegram cuando el fichaje falla (el token
+es el del bot que ya usa el PC). Nunca en este repositorio. Si un día
 hay que volver a fijarlas, mira los pasos de la página de instrucciones.
 
 ## Ficheros
@@ -154,7 +166,7 @@ Dos scripts sin red ni credenciales, en el repo y en el CI:
 
 ```bash
 python3 test_docs.py   # los rangos siguen iguales en el codigo y en los docs
-python3 test_punch.py  # decidir()/punch_once: 21 comprobaciones
+python3 test_punch.py  # decidir()/punch_once: 54 comprobaciones
 ```
 
 Si alguno falla, `pages.yml` **no despliega** la página de instrucciones
@@ -166,7 +178,8 @@ Si alguno falla, `pages.yml` **no despliega** la página de instrucciones
 - `Session.get/post` devuelven `(url, html)`. Leerlos al revés fue el fallo que
   dejó el fichaje parado durante días; ahora hay pruebas que lo cubren.
 - `fichaje.lock` impide que dos procesos fichen a la vez (el reloj y una
-  ejecución manual nunca se pisan).
+  ejecución manual nunca se pisan). Solo se toma al pulsar, no durante la
+  espera: si un proceso se congela esperando, otro puede fichar.
 - El fichaje **nunca** corre en GitHub Actions: solo ahí se publica la
   página y se ejecutan los tests. El histórico de acciones automáticas se
   eliminó porque usaban un horario viejo (9:30) y guardaban las credenciales

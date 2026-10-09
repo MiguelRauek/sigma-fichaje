@@ -10,6 +10,8 @@ import sigma_punch as sp
 
 # No tocar el fichaje.log del repo: el test escribe en un temporal.
 sp.LOG_PATH = str(Path(tempfile.gettempdir()) / "fichaje-test.log")
+sp.LOCK_PATH = str(Path(tempfile.gettempdir()) / "fichaje-test.lock")
+sp.ALARM_MARKER = str(Path(tempfile.gettempdir()) / "fichaje-test-alarma.txt")
 
 fails = []
 
@@ -96,7 +98,7 @@ check("fallo_es_de_red no", sp.fallo_es_de_red("login fallido (credenciales inco
 
 # --- 3. punch_once con run_punch simulado -------------------------------
 alarms, avisos = [], []
-sp.alarma = lambda m: alarms.append(m)
+sp.alarma = lambda *a: alarms.append(a[0])
 sp.aviso = lambda m: avisos.append(m)
 sp.time.sleep = lambda *_: None
 sp.wait_until = lambda *a, **k: None
@@ -145,6 +147,23 @@ calls.clear(); sp.run_punch = sim_c
 fijar_hora(18, 6, 0); alarms.clear(); avisos.clear()
 check("E exit -> 0", sp.punch_once("exit", "T-E"), 0)
 check("E modo exit", [c[0] for c in calls], ["exit", "exit"])
+
+# F) cerrojo ocupado al principio y luego libre -> se espera y se consigue
+orig_acquire = sp.acquire_lock
+lock_calls = []
+def sim_lock():
+    lock_calls.append(1)
+    return len(lock_calls) >= 2
+sp.acquire_lock = sim_lock
+fijar_hora(10, 6, 0)
+check("F cerrojo ocupado->libre", sp._esperar_cerrojo(36599), True)
+check("F reintento de cerrojo", len(lock_calls), 2)
+
+# G) cerrojo ocupado hasta el cierre de la ventana -> False
+sp.acquire_lock = lambda: False
+fijar_hora(10, 10, 0)
+check("G cerrojo ocupado al cerrarse la ventana", sp._esperar_cerrojo(36599), False)
+sp.acquire_lock = orig_acquire
 
 print()
 if fails:

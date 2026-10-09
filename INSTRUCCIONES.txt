@@ -24,7 +24,8 @@ HORARIOS
    pkg install termux-api
 
    Trae el reloj que programa los fichajes y la alarma. Si falta esto,
-   el programa NO ficha y no suena la alarma.
+   el programa NO ficha y no suena la alarma: el móvil se duerme durante
+   la espera y el proceso se congela (el fallo del 09/10/2026).
 
 4. Crear config.json con tus credenciales de sigmatime.es:
 
@@ -32,11 +33,17 @@ HORARIOS
 
    {
      "email": "TU-CORREO",
-     "pass": "TU-CONTRASENA"
+     "pass": "TU-CONTRASENA",
+     "telegram_token": "TU-TOKEN-DEL-BOT",
+     "telegram_chat_id": "TU-CHAT-ID"
    }
 
    OJO: la clave se llama "pass", no "password". Guardar con CTRL+O y
    salir con CTRL+X.
+
+   telegram_token y telegram_chat_id son OPCIONALES pero muy recomendados:
+   si el fichaje falla, además del sonido llega un mensaje a Telegram
+   (el token es el del bot que ya usa el PC, en ~/.config/openwork/telegram.conf).
 
 5. Permisos en el móvil (Termux y Termux:Boot):
    - Batería: Sin restricciones
@@ -94,4 +101,8 @@ Suena cuando el fichaje falla por falta de internet: el tono de alarma del
 móvil en bucle, dos veces, y un cartel en pantalla. Es para enterarte el
 mismo día, no al siguiente.
 
-Si el fallo es de la web y no de internet, solo sale el cartel, sin ruido.
+Si config.json tiene telegram_token y telegram_chat_id, además llega un
+mensaje a Telegram aunque el sonido no se oiga.
+
+Si el fallo es de la web y no de internet, solo sale el cartel, sin ruido
+(pero también llega el mensaje a Telegram si está configurado).

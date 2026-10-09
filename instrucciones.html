@@ -86,16 +86,16 @@
 const STEPS = [
   { n:1, t:"Bajar los tres ficheros", note:"Hazlo en Termux, en el móvil. Pega y dale a Enter.",
     cmds:[
-      'curl -fsSL -o sigma_punch.py "https://raw.githubusercontent.com/MiguelRauek/sigma-fichaje/main/sigma_punch.py?x=9"',
-      'curl -fsSL -o reloj.sh "https://raw.githubusercontent.com/MiguelRauek/sigma-fichaje/main/reloj.sh?x=9"',
-      'curl -fsSL -o sigma_boot.sh "https://raw.githubusercontent.com/MiguelRauek/sigma-fichaje/main/sigma_boot.sh?x=9"'
+      'curl -fsSL -o sigma_punch.py "https://raw.githubusercontent.com/MiguelRauek/sigma-fichaje/main/sigma_punch.py?x=10"',
+      'curl -fsSL -o reloj.sh "https://raw.githubusercontent.com/MiguelRauek/sigma-fichaje/main/reloj.sh?x=10"',
+      'curl -fsSL -o sigma_boot.sh "https://raw.githubusercontent.com/MiguelRauek/sigma-fichaje/main/sigma_boot.sh?x=10"'
     ]},
   { n:2, t:"Comprobar que es la versión nueva", note:"Debe imprimir 1.",
     cmds:['grep -c "25/10/2026" sigma_punch.py']},
-  { n:3, t:"Instalar el paquete de comandos", note:"DENTRO de Termux. Trae el reloj que programa los fichajes y la alarma. Si falta esto NO se ficha ni suena la alarma.",
+  { n:3, t:"Instalar el paquete de comandos", note:"DENTRO de Termux. Trae el reloj que programa los fichajes y la alarma. Si falta esto NO se ficha ni suena la alarma: el móvil se duerme durante la espera y el proceso se congela (fallo del 09/10/2026).",
     cmds:['pkg install termux-api']},
-  { n:4, t:"Crear config.json con tus credenciales", note:"⚠️ La clave se llama <b>pass</b>, no password. Pega, dale Enter y en <b>nano</b> sustituye TU-CORREO y TU-CONTRASENA. Guarda con Ctrl+O, Enter, Ctrl+X.",
-    cmds:['printf \'{"email":"TU-CORREO","pass":"TU-CONTRASENA"}\' > ~/config.json && nano ~/config.json']},
+  { n:4, t:"Crear config.json con tus credenciales", note:"⚠️ La clave se llama <b>pass</b>, no password. Pega, dale Enter y en <b>nano</b> sustituye TU-CORREO, TU-CONTRASENA, TU-TOKEN y TU-CHAT-ID. Guarda con Ctrl+O, Enter, Ctrl+X. <b>telegram_token</b> y <b>telegram_chat_id</b> son opcionales pero recomendados: si el fichaje falla, además del sonido llega un mensaje a Telegram.",
+    cmds:['printf \'{"email":"TU-CORREO","pass":"TU-CONTRASENA","telegram_token":"TU-TOKEN","telegram_chat_id":"TU-CHAT-ID"}\' > ~/config.json && nano ~/config.json']},
   { n:5, t:"Instalar Termux:Boot", note:"Instálala desde el <b>navegador del móvil</b> (Chrome), no desde Termux. ⚠️ Imprescindible: ábrela una vez al instalarla y ciérrala, si no Android no la ejecuta nunca.",
     links:[{txt:"Abrir Termux:Boot en F-Droid ↗", url:"https://f-droid.org/packages/com.termux.boot/"}]},
   { n:6, t:"Permisos (en Ajustes, no es un comando)", note:"Ajustes › Apps › <b>Termux:Boot</b> → Autoarranque ON + Batería «Sin restricciones». Luego igual para <b>Termux</b>."},

@@ -3,9 +3,9 @@
 SigmaFichaje — fichaje automático en SigmaTime (sigmatime.es).
 
 Ejecuta el fichaje de entrada o salida en el horario aleatorio configurado.
-Sin notificaciones de ningún tipo (ni Telegram ni email): solo registra la
-hora de cada fichaje. Sin dependencias externas (solo stdlib), pensado para
-GitHub Actions.
+Si algo falla, avisa con el tono de alarma del móvil y, si config.json tiene
+telegram_token/telegram_chat_id, con un mensaje a Telegram. Sin dependencias
+externas (solo stdlib), pensado para el móvil (Termux).
 
 Uso:
   python3 sigma_punch.py           # modo diario: entrada + salida (para Pydroid)
@@ -80,6 +80,7 @@ EMAIL, PASS = _load_credentials()
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 LOG_PATH = os.path.join(SCRIPT_DIR, "fichaje.log")
 LOCK_PATH = os.path.join(SCRIPT_DIR, "fichaje.lock")
+ALARM_MARKER = os.path.join(SCRIPT_DIR, "alarma_hoy.txt")
 TMP_DIR = os.environ.get("TMPDIR", "/data/data/com.termux/files/usr/tmp")
 
 # Último día del modo permanente (DD/MM/AAAA). Vacío = sin límite.
@@ -267,18 +268,52 @@ def _pitido() -> str:
     except Exception:
         return ""
 
+def _telegram_alarma(texto: str) -> None:
+    """Manda un mensaje a Telegram (el movil tiene internet). Silencioso si falla.
+
+    Necesita telegram_token y telegram_chat_id en config.json. Sin ellos,
+    la alarma local sigue funcionando igual.
+    """
+    try:
+        with open(os.path.join(SCRIPT_DIR, "config.json"), "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+        token = cfg.get("telegram_token", "")
+        chat = cfg.get("telegram_chat_id", "")
+        if not token or not chat:
+            return
+        data = urllib.parse.urlencode({
+            "chat_id": chat,
+            "text": f"SIGMAFICHAJE: {texto[:300]}",
+        }).encode()
+        req = urllib.request.Request(
+            f"https://api.telegram.org/bot{token}/sendMessage", data=data)
+        with urllib.request.urlopen(req, timeout=15) as r:
+            r.read()
+    except Exception:
+        pass  # la alarma local ya sonó; Telegram es un extra
+
 def aviso(motivo: str) -> None:
-    """Solo un cartel en pantalla: el fichaje fallo por otro motivo."""
+    """Cartel en pantalla + Telegram: el fichaje fallo por otro motivo."""
     log(f"[Aviso] {motivo}")
     _sh("termux-toast", "Fichaje", motivo[:120])
+    _telegram_alarma(f"AVISO: {motivo}")
 
-def alarma(motivo: str) -> None:
-    """Pitido escandaloso: el fichaje fallo y hay que enterarse ya.
+def alarma(motivo: str, modo: str = "") -> None:
+    """Pitido escandaloso + Telegram: el fichaje fallo y hay que enterarse ya.
 
     Suena el tono de alarma del propio movil, en bucle, y encima sale un
-    cartel. Es lo que evita enterte al dia siguiente de que no fichaste.
+    cartel y un mensaje a Telegram. Solo avisa una vez por dia y modo
+    (varios procesos congelados que despiertan tarde no repiten la alarma).
     """
+    marca = f"{now_local().strftime('%d/%m/%Y')} {modo}".strip()
+    try:
+        with open(ALARM_MARKER, "r", encoding="utf-8") as f:
+            if f.read().strip() == marca:
+                return  # ya se avisó de esto hoy
+    except OSError:
+        pass
     log(f"[ALARMA] {motivo}")
+    _telegram_alarma(motivo)
     f = _pitido()
     if f:
         _sh("termux-media-player", "play", f, "--loop", "4")
@@ -292,6 +327,11 @@ def alarma(motivo: str) -> None:
             _sh("termux-bell", timeout=5)
             time.sleep(1)
         _sh("termux-toast", "NO SE HA PODIDO FICHAR", motivo[:120])
+    try:
+        with open(ALARM_MARKER, "w", encoding="utf-8") as f:
+            f.write(marca)
+    except OSError:
+        pass
 
 def fallo_es_de_red(motivo: str) -> bool:
     """True si el fallo fue de internet/DNS y no de la web."""
@@ -597,6 +637,21 @@ def run_ver():
 # Main
 # ---------------------------------------------------------------------------
 
+def _esperar_cerrojo(hasta: int | None) -> bool:
+    """Toma el cerrojo; si esta ocupado, espera hasta 'hasta' (segundos del dia).
+
+    Varios procesos pueden esperar a la vez (el cerrojo ya no se toma durante
+    la espera), pero solo uno pulsa: el primero que lo consiga. Si el cerrojo
+    sigue ocupado al cerrarse la ventana, devuelve False.
+    """
+    while True:
+        if acquire_lock():
+            return True
+        if hasta is None or seconds_of_day(now_local()) > hasta:
+            return False
+        time.sleep(20)
+
+
 def punch_once(mode: str, label: str) -> int:
     """Espera a la ventana del modo y ficha con reintentos. Devuelve 0 si OK."""
     base = datetime.combine(now_local().date(), datetime.min.time())
@@ -617,56 +672,78 @@ def punch_once(mode: str, label: str) -> int:
     if mode != "test":
         wait_until(target, label)
 
-    # Si el movil desperto con la ventana ya cerrada (el reloj de Android a
-    # veces se retrasa), NO se pega la prisa de alarmar: primero se comprueba
-    # sin pulsar si el fichaje ya estaba hecho. Si no, si que suena la alarma
-    # en vez de quedarse callado y que parezca que todo fue bien.
-    if window_end is not None and seconds_of_day(now_local()) > window_end:
-        ok, msg = run_punch(mode if mode in ("entry", "exit") else "",
-                            pulsar=False)
-        if ok:
-            log(f"[{label}] ventana {window_txt} pasada, pero {msg}")
-            return 0
-        alarma(f"{label}: no se pudo fichar, la ventana {window_txt} ya paso "
-                f"({msg})")
-        return 1
+    # Cerrojo SOLO para la fase de pulsar (no durante la espera): si un
+    # proceso se congela esperando (Android duerme el movil), otro puede
+    # fichar. Si el cerrojo esta ocupado, se espera hasta el final de la
+    # ventana (el otro proceso puede estar reintentando); si no se consigue,
+    # se consulta y se avisa.
+    bloqueado = False
+    if mode in ("entry", "exit"):
+        if not _esperar_cerrojo(window_end):
+            ok, msg = run_punch(mode, pulsar=False)
+            if ok:
+                log(f"[{label}] otro proceso ya fichó: {msg}")
+                return 0
+            alarma(f"{label}: otro proceso se quedó atascado y no fichó ({msg})",
+                   label)
+            return 1
+        bloqueado = True
+        log(f"[{label}] cerrojo tomado (pid {os.getpid()})")
 
-    # Reintentos. Las ventanas son de 3 minutos, asi que se insiste mas a
-    # menudo que antes: la entrada hasta 8 veces cada 25 s y la salida hasta
-    # 10 veces cada 18 s, para que quepan varias dentro de la ventana.
-    delay, intentos = (25, 8) if mode == "entry" else (18, 10)
-    ultimo = "sin intentos"
-    houve_uno = False
-    for attempt in range(1, intentos + 1):
+    try:
+        # Si el movil desperto con la ventana ya cerrada (el reloj de Android a
+        # veces se retrasa), NO se pega la prisa de alarmar: primero se comprueba
+        # sin pulsar si el fichaje ya estaba hecho. Si no, si que suena la alarma
+        # en vez de quedarse callado y que parezca que todo fue bien.
         if window_end is not None and seconds_of_day(now_local()) > window_end:
-            log(f"[{label}] fuera de la ventana {window_txt}, no se reintenta")
-            break
-        houve_uno = True
-        ok, msg = run_punch(mode if mode in ("entry", "exit") else "")
-        ultimo = msg
-        log(f"[{label}] intento {attempt}: {'OK' if ok else 'FALLO'} — {msg}")
-        if ok:
-            return 0
-        if attempt < intentos:
-            time.sleep(delay)
+            ok, msg = run_punch(mode if mode in ("entry", "exit") else "",
+                                pulsar=False)
+            if ok:
+                log(f"[{label}] ventana {window_txt} pasada, pero {msg}")
+                return 0
+            alarma(f"{label}: no se pudo fichar, la ventana {window_txt} ya paso "
+                   f"({msg})", label)
+            return 1
 
-    # Se acabo la ventana sin fichar. Antes de alarmar se consulta una vez
-    # mas sin pulsar: si el ultimo pulso si se registro (y solo falto la
-    # verificacion), no se pita nada.
-    if window_end is not None:
-        ok, msg = run_punch(mode if mode in ("entry", "exit") else "",
-                            pulsar=False)
-        if ok:
-            log(f"[{label}] al final {msg}")
-            return 0
+        # Reintentos. Las ventanas son de 3 minutos, asi que se insiste mas a
+        # menudo que antes: la entrada hasta 8 veces cada 25 s y la salida hasta
+        # 10 veces cada 18 s, para que quepan varias dentro de la ventana.
+        delay, intentos = (25, 8) if mode == "entry" else (18, 10)
+        ultimo = "sin intentos"
+        houve_uno = False
+        for attempt in range(1, intentos + 1):
+            if window_end is not None and seconds_of_day(now_local()) > window_end:
+                log(f"[{label}] fuera de la ventana {window_txt}, no se reintenta")
+                break
+            houve_uno = True
+            ok, msg = run_punch(mode if mode in ("entry", "exit") else "")
+            ultimo = msg
+            log(f"[{label}] intento {attempt}: {'OK' if ok else 'FALLO'} — {msg}")
+            if ok:
+                return 0
+            if attempt < intentos:
+                time.sleep(delay)
 
-    # Si fue por internet, delante y escandaloso.
-    if houve_uno:
-        if fallo_es_de_red(ultimo):
-            alarma(f"{label}: sin internet. {ultimo[:90]}")
-        else:
-            aviso(f"{label} no se pudo registrar. {ultimo[:90]}")
-    return 1
+        # Se acabo la ventana sin fichar. Antes de alarmar se consulta una vez
+        # mas sin pulsar: si el ultimo pulso si se registro (y solo falto la
+        # verificacion), no se pita nada.
+        if window_end is not None:
+            ok, msg = run_punch(mode if mode in ("entry", "exit") else "",
+                                pulsar=False)
+            if ok:
+                log(f"[{label}] al final {msg}")
+                return 0
+
+        # Si fue por internet, delante y escandaloso.
+        if houve_uno:
+            if fallo_es_de_red(ultimo):
+                alarma(f"{label}: sin internet. {ultimo[:90]}", label)
+            else:
+                aviso(f"{label} no se pudo registrar. {ultimo[:90]}")
+        return 1
+    finally:
+        if bloqueado:
+            release_lock()
 
 def run_forever() -> int:
     """Modo permanente: ficha entrada y salida todos los días, solo.
@@ -785,55 +862,43 @@ def main() -> int:
         log("Faltan las variables SIGMA_EMAIL y SIGMA_PASS")
         return 2
 
-    # Cerrojo: solo un proceso puede fichar a la vez (autoarranque + manual).
-    # --test/--check/--ver no lo usan: son pruebas y no deben verse bloqueados.
-    # --forever lo toma una vez y lo mantiene toda su vida, porque es el
-    # proceso que ficha todos los dias: si lo soltara, otro podría duplicar.
-    bloqueado = False
+    # Tope de fechas tambien para los modos sueltos: si el movil deja de
+    # fichar el 25/10 pero sigue programmeado, no debe seguir fichando.
+    # (El cerrojo ya no se toma aqui: punch_once lo toma solo al pulsar,
+    #  para que varios procesos puedan esperar a la vez y, si uno se
+    #  congela esperando, otro pueda fichar.)
     if mode in ("entry", "exit", "daily", "forever"):
-        # Tope de fechas tambien para los modos sueltos: si el movil deja de
-        # fichar el 25/10 pero sigue programmeado, no debe seguir fichando.
         if LAST_DAY and now_local().strftime("%d/%m/%Y") > LAST_DAY:
             log(f"[{label}] hoy es posterior a {LAST_DAY}; fin del periodo, no se ficha")
             return 0
-        if not acquire_lock():
-            pid = _lock_holder()
-            log(f"[{label}] otro proceso ya está fichando (pid {pid}) — no se duplica, saliendo")
-            return 0
-        bloqueado = True
-        log(f"[{label}] cerrojo tomado (pid {os.getpid()})")
 
-    try:
-        # Días en skip_dates.txt: no se ficha (solo modos automáticos; --test/--check/--ver siguen funcionando)
-        if mode in ("entry", "exit", "daily") and today_skipped():
-            log(f"[{label}] {now_local().strftime('%d/%m/%Y')} está en skip_dates.txt — NO se ficha hoy")
-            return 0
+    # Días en skip_dates.txt: no se ficha (solo modos automáticos; --test/--check/--ver siguen funcionando)
+    if mode in ("entry", "exit", "daily") and today_skipped():
+        log(f"[{label}] {now_local().strftime('%d/%m/%Y')} está en skip_dates.txt — NO se ficha hoy")
+        return 0
 
-        if mode == "check":
-            ok, msg = run_check()
-            log(f"[Check] {'OK' if ok else 'FALLO'} — {msg}")
-            return 0 if ok else 1
+    if mode == "check":
+        ok, msg = run_check()
+        log(f"[Check] {'OK' if ok else 'FALLO'} — {msg}")
+        return 0 if ok else 1
 
-        if mode == "ver":
-            ok, msg = run_ver()
-            log(f"[Ver] {'OK' if ok else 'FALLO'} — {msg}")
-            return 0 if ok else 1
+    if mode == "ver":
+        ok, msg = run_ver()
+        log(f"[Ver] {'OK' if ok else 'FALLO'} — {msg}")
+        return 0 if ok else 1
 
-        if mode == "volcar":
-            ok, msg = run_volcar()
-            log(f"[Volcar] {'OK' if ok else 'FALLO'} — {msg}")
-            return 0 if ok else 1
+    if mode == "volcar":
+        ok, msg = run_volcar()
+        log(f"[Volcar] {'OK' if ok else 'FALLO'} — {msg}")
+        return 0 if ok else 1
 
-        if mode == "forever":
-            return run_forever()
+    if mode == "forever":
+        return run_forever()
 
-        if mode == "daily":
-            return run_daily()
+    if mode == "daily":
+        return run_daily()
 
-        return punch_once(mode, label)
-    finally:
-        if bloqueado:
-            release_lock()
+    return punch_once(mode, label)
 
 if __name__ == "__main__":
     sys.exit(main())
