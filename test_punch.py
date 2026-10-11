@@ -24,9 +24,10 @@ def check(name, got, want):
     print(f"{'OK ' if ok else 'FAIL'} {name}")
 
 # --- 1. matriz decidir() -------------------------------------------------
-# segundos del dia: 09:00=32400 10:06=36360 10:07=36420 10:09:59=36599
-#                    10:11=36660 12:00=43200 18:06=65160 18:07=65220
-#                    18:09:59=65399 18:10:00=65400 18:11=65460
+# segundos del dia: 09:00=32400 10:05=36300 10:06=36360 10:07=36420
+#                    10:08:59=36539 10:09:00=36540 10:11=36660 12:00=43200
+#                    18:05=65100 18:06=65160 18:07=65220 18:08:59=65339
+#                    18:09:00=65340 18:10=65400 18:11=65460
 M = [
     # (mode, c_tip, before, ahora, accion_esperada, porque)
     ("entry", "1", 0, 36420, "pulsar", "normal: dia limpio, boton verde, en ventana"),
@@ -35,7 +36,7 @@ M = [
     ("entry", "2", 0, 36420, "fallo",  "rojo sin fichajes: no fichar al reves"),
     ("entry", "4", 0, 36420, "fallo",  "c_tip desconocido"),
     ("entry", "1", 0, 36660, "fallo",  "ENTRADA FUERA DE VENTANA (10:11)"),
-    ("entry", "1", 0, 32400, "fallo",  "entrada antes de las 10:06 (09:00)"),
+    ("entry", "1", 0, 32400, "fallo",  "entrada antes de las 10:05 (09:00)"),
     ("exit",  "2", 1, 65220, "pulsar", "normal: boton rojo en la ventana de salida"),
     ("exit",  "3", 1, 65220, "pulsar", "c_tip=3 tambien es salida"),
     ("exit",  "1", 2, 65220, "hecho",  "salida ya hecha y boton vuelve a verde"),
@@ -45,9 +46,9 @@ M = [
     ("exit",  "2", 0, 65220, "fallo",  "rojo sin entrada: no se ficha la salida"),
     ("exit",  "2", 1, 36420, "fallo",  "CLAVE: SALIDA A LAS 10:07 DE LA MANANA"),
     ("exit",  "2", 1, 43200, "fallo",  "salida a mediodia (12:00)"),
-    ("exit",  "2", 1, 65399, "pulsar", "ultimo segundo de la ventana (18:09:59)"),
-    ("exit",  "2", 1, 65400, "fallo",  "18:10:00 ya fuera de la ventana de salida"),
-    ("exit",  "2", 1, 65460, "fallo",  "salida despues de las 18:09:59"),
+    ("exit",  "2", 1, 65339, "pulsar", "ultimo segundo de la ventana (18:08:59)"),
+    ("exit",  "2", 1, 65340, "fallo",  "18:09:00 ya fuera de la ventana de salida"),
+    ("exit",  "2", 1, 65460, "fallo",  "salida despues de las 18:08:59"),
     ("",      "1", 0, 36420, "pulsar", "--test dentro de la ventana de entrada"),
     ("",      "2", 1, 65220, "pulsar", "--test dentro de la ventana de salida"),
     ("",      "1", 0, 43200, "fallo",  "--test fuera de ventana: no se puede"),
@@ -62,12 +63,12 @@ for mode, ct, before, ahora, want, why in M:
           f"before={before},ahora={ahora}) -> {want} ({why})")
 
 # limites de ventana
-check("en_ventana entry 10:06:00", sp.en_ventana("entry", 36360), True)
-check("en_ventana entry 10:09:59", sp.en_ventana("entry", 36599), True)
-check("en_ventana entry 10:10:00", sp.en_ventana("entry", 36600), False)
-check("en_ventana exit 18:06:00", sp.en_ventana("exit", 65160), True)
-check("en_ventana exit 18:09:59", sp.en_ventana("exit", 65399), True)
-check("en_ventana exit 18:10:00", sp.en_ventana("exit", 65400), False)
+check("en_ventana entry 10:05:00", sp.en_ventana("entry", 36300), True)
+check("en_ventana entry 10:08:59", sp.en_ventana("entry", 36539), True)
+check("en_ventana entry 10:09:00", sp.en_ventana("entry", 36540), False)
+check("en_ventana exit 18:05:00", sp.en_ventana("exit", 65100), True)
+check("en_ventana exit 18:08:59", sp.en_ventana("exit", 65339), True)
+check("en_ventana exit 18:09:00", sp.en_ventana("exit", 65340), False)
 check("en_ventana exit 18:11:00", sp.en_ventana("exit", 65460), False)
 check("en_ventana exit a las 10:07", sp.en_ventana("exit", 36420), False)
 
@@ -86,9 +87,9 @@ check("5000 tiradas: nunca en punto (:00) y dentro de la ventana", viol, [])
 # --- 2. helpers de HTML --------------------------------------------------
 today = sp.now_local().strftime("%d/%m/%Y")
 verde = (f'<input type="hidden" name="c_tip" value="1">'
-         f'<strong>{today}</strong> <font color="green">10:06:00</font><br>')
+         f'<strong>{today}</strong> <font color="green">10:05:00</font><br>')
 rojo = (f'<input type="hidden" value="2" name="c_tip">'
-        f'<strong>{today}</strong> <font color="red">10:06:00</font> '
+        f'<strong>{today}</strong> <font color="red">10:05:00</font> '
         f'<font color="red">18:07:11</font><br>')
 check("leer_c_tip verde", sp.leer_c_tip(verde), "1")
 check("leer_c_tip rojo invertido", sp.leer_c_tip(rojo), "2")
@@ -193,13 +194,13 @@ sp._sh = orig_sh
 tg_msgs = []
 orig_tg = sp._telegram
 sp._telegram = lambda t: tg_msgs.append(t)
-fijar_hora(10, 6, 39)
+fijar_hora(10, 5, 39)
 sp._telegram_ok("Entrada", "fichaje OK: ENTRADA (boton verde) (hoy: 0 → 1)")
 check("I telegram ok mayusculas",
-      tg_msgs[0], "10:06:39 — FICHAJE OK: ENTRADA (BOTON VERDE) (HOY: 0 → 1)")
+      tg_msgs[0], "10:05:39 — FICHAJE OK: ENTRADA (BOTON VERDE) (HOY: 0 → 1)")
 sp._telegram_ok("Salida", "la salida ya estaba registrada (hoy: 2)")
 check("I telegram ya registrada",
-      tg_msgs[1], "10:06:39 — LA SALIDA YA ESTABA REGISTRADA (HOY: 2)")
+      tg_msgs[1], "10:05:39 — LA SALIDA YA ESTABA REGISTRADA (HOY: 2)")
 sp._telegram = orig_tg
 
 print()

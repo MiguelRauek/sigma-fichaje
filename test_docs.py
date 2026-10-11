@@ -62,10 +62,10 @@ ok(vent["salida"][0] - vent["entrada"][0] == 8 * 3600
    "ventana de salida = ventana de entrada + 8 h (los dos extremos)")
 
 # --- 3. la politica en si: no ha cambiado de sitio ------------------------
-ok(vent["entrada"] == (10 * 3600 + 6 * 60, 10 * 3600 + 9 * 60 + 59),
-   "ventana de entrada fijada en 10:06:00-10:09:59")
-ok(vent["salida"] == (18 * 3600 + 6 * 60, 18 * 3600 + 9 * 60 + 59),
-   "ventana de salida fijada en 18:06:00-18:09:59")
+ok(vent["entrada"] == (10 * 3600 + 5 * 60, 10 * 3600 + 8 * 60 + 59),
+   "ventana de entrada fijada en 10:05:00-10:08:59")
+ok(vent["salida"] == (18 * 3600 + 5 * 60, 18 * 3600 + 8 * 60 + 59),
+   "ventana de salida fijada en 18:05:00-18:08:59")
 ok(vals["ENTRY_SPAN"] == 239 and vals["EXIT_SPAN"] == 239,
    "duraciones: entrada 239 s, salida 239 s")
 
@@ -73,13 +73,15 @@ ok(vals["ENTRY_SPAN"] == 239 and vals["EXIT_SPAN"] == 239,
 DOCS = ("README.md", "INSTRUCCIONES.txt", "instrucciones.html", "reloj.sh")
 for doc in DOCS:
     txt = (HERE / doc).read_text(encoding="utf-8")
-    for tok in ("10:06", "10:09", "18:06", "18:09"):
+    for tok in ("10:05", "10:08", "18:05", "18:08"):
         ok(tok in txt, f"{doc} menciona {tok}")
 
 # --- 5. sin restos de los rangos viejos -----------------------------------
 # 18:02 era el corte viejo de salida; 18:10:59 el final viejo de la salida;
-# 10:11/18:11:59/10:10:00 los finales viejos de la entrada
-VIEJOS = ("18:02", "18:10:59", "10:11", "18:11:59", "10:10:00")
+# 10:11/18:11:59/10:10:00 los finales viejos de la entrada; y los rangos
+# anteriores a este cambio (10:06-10:09 / 18:06-18:09)
+VIEJOS = ("18:02", "18:10:59", "10:11", "18:11:59", "10:10:00",
+          "10:06", "10:09", "18:06", "18:09")
 for doc in DOCS:
     txt = (HERE / doc).read_text(encoding="utf-8")
     for viejo in VIEJOS:
