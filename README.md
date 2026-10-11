@@ -74,6 +74,10 @@ El mensaje a Telegram necesita `telegram_token` y `telegram_chat_id` en
 el mensaje llega. La alarma solo avisa una vez por día y modo (varios
 procesos congelados que despiertan tarde no la repiten).
 
+**También avisa cuando ficha bien**, en mayúsculas y con la hora, para que
+no se fiche a mano por si acaso. Ejemplo:
+`SIGMAFICHAJE: 10:06:39 — FICHAJE OK: ENTRADA (BOTON VERDE) (HOY: 0 → 1)`.
+
 ## Arranque automático y batería
 
 Termux:Boot ejecuta `~/.termux/boot/sigma.sh` al encender el móvil, y **se apaga

@@ -269,7 +269,7 @@ def _pitido() -> str:
     except Exception:
         return ""
 
-def _telegram_alarma(texto: str) -> None:
+def _telegram(texto: str) -> None:
     """Manda un mensaje a Telegram (el movil tiene internet). Silencioso si falla.
 
     Necesita telegram_token y telegram_chat_id en config.json. Sin ellos,
@@ -293,11 +293,21 @@ def _telegram_alarma(texto: str) -> None:
     except Exception:
         pass  # la alarma local ya sonó; Telegram es un extra
 
+def _telegram_ok(label: str, msg: str) -> None:
+    """Telegram cuando el fichaje se registra bien: claro y en mayusculas.
+
+    Ejemplo: "SIGMAFICHAJE: 10:06:39 — FICHAJE OK: ENTRADA (BOTON VERDE)
+    (HOY: 0 → 1)". Tambien avisa si ya estaba registrado, para que no se
+    fiche a mano por si acaso.
+    """
+    hora = now_local().strftime("%H:%M:%S")
+    _telegram(f"{hora} — {msg.upper()}")
+
 def aviso(motivo: str) -> None:
     """Cartel en pantalla + Telegram: el fichaje fallo por otro motivo."""
     log(f"[Aviso] {motivo}")
     _sh("termux-toast", "Fichaje", motivo[:120])
-    _telegram_alarma(f"AVISO: {motivo}")
+    _telegram(f"AVISO: {motivo}")
 
 def alarma(motivo: str, modo: str = "") -> None:
     """Pitido escandaloso + Telegram: el fichaje fallo y hay que enterarse ya.
@@ -314,7 +324,7 @@ def alarma(motivo: str, modo: str = "") -> None:
     except OSError:
         pass
     log(f"[ALARMA] {motivo}")
-    _telegram_alarma(motivo)
+    _telegram(motivo)
     f = _pitido()
     if f:
         _sh("termux-media-player", "play", f, "--loop", "4")
@@ -688,6 +698,7 @@ def punch_once(mode: str, label: str) -> int:
             ok, msg = run_punch(mode, pulsar=False)
             if ok:
                 log(f"[{label}] otro proceso ya fichó: {msg}")
+                _telegram_ok(label, msg)
                 return 0
             alarma(f"{label}: otro proceso se quedó atascado y no fichó ({msg})",
                    label)
@@ -705,6 +716,7 @@ def punch_once(mode: str, label: str) -> int:
                                 pulsar=False)
             if ok:
                 log(f"[{label}] ventana {window_txt} pasada, pero {msg}")
+                _telegram_ok(label, msg)
                 return 0
             alarma(f"{label}: no se pudo fichar, la ventana {window_txt} ya paso "
                    f"({msg})", label)
@@ -725,6 +737,7 @@ def punch_once(mode: str, label: str) -> int:
             ultimo = msg
             log(f"[{label}] intento {attempt}: {'OK' if ok else 'FALLO'} — {msg}")
             if ok:
+                _telegram_ok(label, msg)
                 return 0
             if attempt < intentos:
                 time.sleep(delay)
@@ -737,6 +750,7 @@ def punch_once(mode: str, label: str) -> int:
                                 pulsar=False)
             if ok:
                 log(f"[{label}] al final {msg}")
+                _telegram_ok(label, msg)
                 return 0
 
         # Si fue por internet, delante y escandaloso.

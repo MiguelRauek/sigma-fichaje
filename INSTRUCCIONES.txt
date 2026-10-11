@@ -42,7 +42,9 @@ HORARIOS
    salir con CTRL+X.
 
    telegram_token y telegram_chat_id son OPCIONALES pero muy recomendados:
-   si el fichaje falla, además del sonido llega un mensaje a Telegram
+   si el fichaje falla, además del sonido llega un mensaje a Telegram, y
+   cuando ficha bien también avisa (en mayúsculas, con la hora) para no
+   fichar a mano por si acaso.
    (el token es el del bot que ya usa el PC, en ~/.config/openwork/telegram.conf).
 
 5. Permisos en el móvil (Termux y Termux:Boot):
