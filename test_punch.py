@@ -14,6 +14,8 @@ sp.LOG_PATH = str(Path(tempfile.gettempdir()) / "fichaje-test.log")
 sp.LOCK_PATH = str(Path(tempfile.gettempdir()) / "fichaje-test.lock")
 sp.ALARM_MARKER = str(Path(tempfile.gettempdir()) / "fichaje-test-alarma.txt")
 sp.WAKE_COUNT = str(Path(tempfile.gettempdir()) / "fichaje-test-wake.txt")
+# Las marcas de "ya avisado por Telegram" tambien van a un temporal.
+sp.SCRIPT_DIR = tempfile.gettempdir()
 
 fails = []
 
@@ -190,17 +192,21 @@ check("H ultimo unlock suelta", sh_calls,
 check("H contador limpio", sp._leer_wake(), (0, 0.0, 0))
 sp._sh = orig_sh
 
-# I) aviso por Telegram cuando ficha bien: claro y en mayusculas
+# I) aviso por Telegram cuando ficha bien: uno por fichaje y dia
 tg_msgs = []
 orig_tg = sp._telegram
-sp._telegram = lambda t: tg_msgs.append(t)
+sp._telegram = lambda t: (tg_msgs.append(t), True)[1]
 fijar_hora(10, 5, 39)
+for f in Path(tempfile.gettempdir()).glob("tg_ok_*"):
+    f.unlink()
 sp._telegram_ok("Entrada", "fichaje OK: ENTRADA (boton verde) (hoy: 0 → 1)")
 check("I telegram ok mayusculas",
       tg_msgs[0], "10:05:39 — FICHAJE OK: ENTRADA (BOTON VERDE) (HOY: 0 → 1)")
-sp._telegram_ok("Salida", "la salida ya estaba registrada (hoy: 2)")
-check("I telegram ya registrada",
-      tg_msgs[1], "10:05:39 — LA SALIDA YA ESTABA REGISTRADA (HOY: 2)")
+sp._telegram_ok("Entrada", "la entrada ya estaba registrada (hoy: 1)")
+check("I telegram no repite la entrada", len(tg_msgs), 1)
+sp._telegram_ok("Salida", "fichaje OK: SALIDA (boton rojo) (hoy: 1 → 2)")
+check("I telegram salida si avisa",
+      tg_msgs[1], "10:05:39 — FICHAJE OK: SALIDA (BOTON ROJO) (HOY: 1 → 2)")
 sp._telegram = orig_tg
 
 print()

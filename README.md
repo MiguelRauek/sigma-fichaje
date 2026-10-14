@@ -77,6 +77,10 @@ procesos congelados que despiertan tarde no la repiten).
 **También avisa cuando ficha bien**, en mayúsculas y con la hora, para que
 no se fiche a mano por si acaso. Ejemplo:
 `SIGMAFICHAJE: 10:05:39 — FICHAJE OK: ENTRADA (BOTON VERDE) (HOY: 0 → 1)`.
+Es **un solo mensaje por fichaje** (dos al día en condiciones normales): el
+reloj lanza varios procesos y todos comparten una marca, así que el que ficha
+avisa y los que lo encuentran ya hecho se callan. Si el envío falla (sin
+internet), no se marca y otro proceso lo reintenta.
 
 ## Arranque automático y batería
 

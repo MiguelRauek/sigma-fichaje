@@ -269,11 +269,12 @@ def _pitido() -> str:
     except Exception:
         return ""
 
-def _telegram(texto: str) -> None:
+def _telegram(texto: str) -> bool:
     """Manda un mensaje a Telegram (el movil tiene internet). Silencioso si falla.
 
     Necesita telegram_token y telegram_chat_id en config.json. Sin ellos,
-    la alarma local sigue funcionando igual.
+    la alarma local sigue funcionando igual. Devuelve True solo si el mensaje
+    salio de verdad (para no marcar como avisado algo que no se envio).
     """
     try:
         with open(os.path.join(SCRIPT_DIR, "config.json"), "r", encoding="utf-8") as f:
@@ -281,7 +282,7 @@ def _telegram(texto: str) -> None:
         token = cfg.get("telegram_token", "")
         chat = cfg.get("telegram_chat_id", "")
         if not token or not chat:
-            return
+            return False
         data = urllib.parse.urlencode({
             "chat_id": chat,
             "text": f"SIGMAFICHAJE: {texto[:300]}",
@@ -290,18 +291,31 @@ def _telegram(texto: str) -> None:
             f"https://api.telegram.org/bot{token}/sendMessage", data=data)
         with urllib.request.urlopen(req, timeout=15) as r:
             r.read()
+        return True
     except Exception:
-        pass  # la alarma local ya sonó; Telegram es un extra
+        return False  # la alarma local ya sonó; Telegram es un extra
 
 def _telegram_ok(label: str, msg: str) -> None:
     """Telegram cuando el fichaje se registra bien: claro y en mayusculas.
 
     Ejemplo: "SIGMAFICHAJE: 10:05:39 — FICHAJE OK: ENTRADA (BOTON VERDE)
-    (HOY: 0 → 1)". Tambien avisa si ya estaba registrado, para que no se
-    fiche a mano por si acaso.
+    (HOY: 0 → 1)". Solo un aviso por fichaje y dia: el reloj lanza varios
+    procesos (el que ficha y los que lo encuentran ya hecho) y todos comparten
+    una marca, para que en un dia normal lleguen solo dos mensajes (entrada y
+    salida). Si el envio falla (sin internet), no se marca y otro proceso lo
+    reintenta.
     """
+    marca = os.path.join(
+        SCRIPT_DIR, f"tg_ok_{now_local().strftime('%Y%m%d')}_{label.lower()}.txt")
+    if os.path.exists(marca):
+        return
     hora = now_local().strftime("%H:%M:%S")
-    _telegram(f"{hora} — {msg.upper()}")
+    if _telegram(f"{hora} — {msg.upper()}"):
+        try:
+            with open(marca, "w", encoding="utf-8") as f:
+                f.write(hora)
+        except OSError:
+            pass
 
 def aviso(motivo: str) -> None:
     """Cartel en pantalla + Telegram: el fichaje fallo por otro motivo."""
