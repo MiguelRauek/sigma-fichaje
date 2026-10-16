@@ -37,8 +37,32 @@ if (txt) { txt = txt.replace(/\r\n/g, '\n'); }
 var st = document.getElementById('st');
 document.getElementById('txt').textContent = txt || '(sin comando en el enlace)';
 
-function exito() { st.className = 'st'; st.innerHTML = '&#10003; COPIADO<br><span style="font-weight:400;font-size:14px">Abre Termux y pega</span>'; }
+function exito() { st.className = 'st'; st.innerHTML = '&#10003; COPIADO<br><span style="font-weight:400;font-size:14px">Abre Termux y pega</span>'; cierra_sola(); }
 function fallo()  { st.className = 'st no'; st.innerHTML = 'Mantén pulsado el texto de arriba y elige <b>Copiar</b><br><span style="font-weight:400;font-size:14px">y luego pega en Termux</span>'; }
+
+// Tras copiar bien, la ventana se cierra sola para no tener que hacerlo a mano.
+// Se intenta en escalera porque cada navegador deja una cosa distinta:
+//   1) history.back()  -> en el visor de Telegram vuelve al chat.
+//   2) window.close()  -> cierra la pestana si el navegador lo permite.
+//   3) about:blank     -> si nada funciona, deja la ventana vacia y sin dudas.
+// Si algo de esto cierra la pagina, los timeouts siguientes no se ejecutan.
+// Solo se lanza una vez: copiar() se dispara al cargar, al cambiar de
+// pestana y a pulsacion, y no queremos varios history.back() encadenados.
+var ya_saliendo = false;
+function cierra_sola() {
+  if (ya_saliendo) { return; }
+  ya_saliendo = true;
+  setTimeout(function () {
+    try { history.back(); } catch (e) {}
+    setTimeout(function () {
+      if (document.hidden) { return; }
+      try { window.close(); } catch (e) {}
+      setTimeout(function () {
+        if (!document.hidden) { location.replace('about:blank'); }
+      }, 700);
+    }, 700);
+  }, 1800);
+}
 
 // El truco: copiar desde un <textarea> con foco, que es lo unico que
 // execCommand copia de forma fiable en el navegador del movil.
