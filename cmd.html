@@ -48,7 +48,7 @@ function fallo()  { st.className = 'st no'; st.innerHTML = 'Mantén pulsado el t
 // Si algo de esto cierra la pagina, los timeouts siguientes no se ejecutan.
 // Solo se lanza una vez: copiar() se dispara al cargar, al cambiar de
 // pestana y a pulsacion, y no queremos varios history.back() encadenados.
-// El primer intento va a 1 s (antes 1,8 s): da tiempo a ver "COPIADO" y
+// El primer intento va a 0,5 s (antes 1 s): da tiempo a ver "COPIADO" y
 // cierra enseguida. Los siguientes van a 0,4 s para no alargar la escalera.
 var ya_saliendo = false;
 function cierra_sola() {
@@ -63,7 +63,7 @@ function cierra_sola() {
         if (!document.hidden) { location.replace('about:blank'); }
       }, 400);
     }, 400);
-  }, 1000);
+  }, 500);
 }
 
 // El truco: copiar desde un <textarea> con foco, que es lo unico que
