@@ -20,8 +20,10 @@ echo "$(date '+%d/%m %H:%M:%S') reloj activo" >> fichaje_boot.log
 # corta suelta el de las demas (fallo del 09/10/2026: la job de las 09:57
 # solto el candado de la de las 09:43, el movil se durmio y la entrada no se
 # ficho). Si falta termux-api, el movil se duerme igualmente.
-#   entrada  fichar entre 10:05:00 y 10:08:59
-#   salida   fichar entre 18:05:00 y 18:08:59
+#   entrada  fichar entre 10:05:00 y 10:08:59 (hasta el 18/10/2026)
+#            y entre 09:59:00 y 10:01:59 (desde el 19/10/2026)
+#   salida   fichar entre 18:05:00 y 18:08:59 (hasta el 18/10/2026)
+#            y entre 18:00:00 y 18:02:59 (desde el 19/10/2026)
 case "$H" in
   09[45][0-9]|100[0-9]|101[0-2]) M=--entry ;;
   175[0-9]|180[0-9]|181[0-2])    M=--exit  ;;

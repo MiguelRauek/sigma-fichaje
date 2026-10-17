@@ -3,11 +3,17 @@
 import os
 import sys
 import tempfile
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sigma_punch as sp
+
+# Fechas fijas para que los tests no dependan del dia real:
+#   VIEJA = ultimo dia con la ventana antigua (10:05-10:08 / 18:05-18:08)
+#   NUEVA = primer dia con la ventana nueva (09:59-10:01 / 18:00-18:02)
+VIEJA = date(2026, 10, 18)
+NUEVA = date(2026, 10, 19)
 
 # No tocar el fichaje.log del repo: el test escribe en un temporal.
 sp.LOG_PATH = str(Path(tempfile.gettempdir()) / "fichaje-test.log")
@@ -57,33 +63,75 @@ M = [
     ("",      "4", 0, 36420, "fallo",  "c_tip desconocido en --test"),
 ]
 for mode, ct, before, ahora, want, why in M:
-    got = sp.decidir(mode, ct, before, ahora)
+    got = sp.decidir(mode, ct, before, ahora, VIEJA)
     ok = got[0] == want
     if not ok:
         fails.append(f"decidir({mode},{ct},{before},{ahora}) -> {got} want {want}")
     print(f"{'OK ' if ok else 'FAIL'} decidir({mode or 'test'},c_tip={ct},"
           f"before={before},ahora={ahora}) -> {want} ({why})")
 
-# limites de ventana
-check("en_ventana entry 10:05:00", sp.en_ventana("entry", 36300), True)
-check("en_ventana entry 10:08:59", sp.en_ventana("entry", 36539), True)
-check("en_ventana entry 10:09:00", sp.en_ventana("entry", 36540), False)
-check("en_ventana exit 18:05:00", sp.en_ventana("exit", 65100), True)
-check("en_ventana exit 18:08:59", sp.en_ventana("exit", 65339), True)
-check("en_ventana exit 18:09:00", sp.en_ventana("exit", 65340), False)
-check("en_ventana exit 18:11:00", sp.en_ventana("exit", 65460), False)
-check("en_ventana exit a las 10:07", sp.en_ventana("exit", 36420), False)
+# --- 1b. matriz decidir() con la ventana NUEVA (desde el 19/10/2026) ------
+# segundos del dia: 09:58:59=35939 09:59:00=35940 10:00=36000 10:01:59=36119
+#                    10:02:00=36120 10:05=36300 10:08:59=36539
+#                    17:59:59=64799 18:00:00=64800 18:02:59=64979
+#                    18:03:00=64980 18:05=65100
+M2 = [
+    ("entry", "1", 0, 36000, "pulsar", "normal: dia limpio, boton verde, en ventana nueva"),
+    ("entry", "1", 0, 35940, "pulsar", "primer segundo de la ventana nueva (09:59:00)"),
+    ("entry", "1", 0, 36119, "pulsar", "ultimo segundo de la ventana nueva (10:01:59)"),
+    ("entry", "1", 0, 35939, "fallo",  "09:58:59: aun fuera de la ventana nueva"),
+    ("entry", "1", 0, 36120, "fallo",  "10:02:00: ya fuera de la ventana nueva"),
+    ("entry", "1", 0, 36300, "fallo",  "10:05:00 ya NO es ventana de entrada"),
+    ("exit",  "2", 1, 64800, "pulsar", "primer segundo de la salida nueva (18:00:00)"),
+    ("exit",  "2", 1, 64979, "pulsar", "ultimo segundo de la salida nueva (18:02:59)"),
+    ("exit",  "2", 1, 64799, "fallo",  "17:59:59: aun fuera de la salida nueva"),
+    ("exit",  "2", 1, 64980, "fallo",  "18:03:00: ya fuera de la salida nueva"),
+    ("exit",  "2", 1, 65100, "fallo",  "18:05:00 ya NO es ventana de salida"),
+]
+for mode, ct, before, ahora, want, why in M2:
+    got = sp.decidir(mode, ct, before, ahora, NUEVA)
+    ok = got[0] == want
+    if not ok:
+        fails.append(f"decidir({mode},{ct},{before},{ahora},NUEVA) -> {got} want {want}")
+    print(f"{'OK ' if ok else 'FAIL'} decidir({mode or 'test'},c_tip={ct},"
+          f"before={before},ahora={ahora},NUEVA) -> {want} ({why})")
+
+# limites de ventana (antigua)
+check("en_ventana entry 10:05:00 (vieja)", sp.en_ventana("entry", 36300, VIEJA), True)
+check("en_ventana entry 10:08:59 (vieja)", sp.en_ventana("entry", 36539, VIEJA), True)
+check("en_ventana entry 10:09:00 (vieja)", sp.en_ventana("entry", 36540, VIEJA), False)
+check("en_ventana exit 18:05:00 (vieja)", sp.en_ventana("exit", 65100, VIEJA), True)
+check("en_ventana exit 18:08:59 (vieja)", sp.en_ventana("exit", 65339, VIEJA), True)
+check("en_ventana exit 18:09:00 (vieja)", sp.en_ventana("exit", 65340, VIEJA), False)
+check("en_ventana exit 18:11:00 (vieja)", sp.en_ventana("exit", 65460, VIEJA), False)
+check("en_ventana exit a las 10:07 (vieja)", sp.en_ventana("exit", 36420, VIEJA), False)
+
+# limites de ventana (nueva)
+check("en_ventana entry 09:59:00 (nueva)", sp.en_ventana("entry", 35940, NUEVA), True)
+check("en_ventana entry 10:01:59 (nueva)", sp.en_ventana("entry", 36119, NUEVA), True)
+check("en_ventana entry 10:02:00 (nueva)", sp.en_ventana("entry", 36120, NUEVA), False)
+check("en_ventana entry 10:05:00 (nueva)", sp.en_ventana("entry", 36300, NUEVA), False)
+check("en_ventana exit 18:00:00 (nueva)", sp.en_ventana("exit", 64800, NUEVA), True)
+check("en_ventana exit 18:02:59 (nueva)", sp.en_ventana("exit", 64979, NUEVA), True)
+check("en_ventana exit 18:03:00 (nueva)", sp.en_ventana("exit", 64980, NUEVA), False)
+check("en_ventana exit 18:05:00 (nueva)", sp.en_ventana("exit", 65100, NUEVA), False)
 
 # el segundo de fichaje nunca termina en :00 (10:07:00 no se usa)
 viol = []
-for _ in range(5000):
-    for f, a, b in ((sp.target_entry, sp.ENTRY_START,
-                     sp.ENTRY_START + sp.ENTRY_SPAN),
-                    (sp.target_exit, sp.EXIT_START,
-                     sp.EXIT_START + sp.EXIT_SPAN)):
-        t = f()
-        if not (a <= t <= b and t % 60 != 0):
-            viol.append((f.__name__, t))
+for fecha, ini_e, fin_e, ini_x, fin_x in (
+        (VIEJA, sp.ENTRY_START, sp.ENTRY_START + sp.ENTRY_SPAN,
+                sp.EXIT_START, sp.EXIT_START + sp.EXIT_SPAN),
+        (NUEVA, sp.ENTRY_START_2, sp.ENTRY_START_2 + sp.ENTRY_SPAN_2,
+                sp.EXIT_START_2, sp.EXIT_START_2 + sp.EXIT_SPAN_2)):
+    d = datetime(fecha.year, fecha.month, fecha.day, 12, 0, 0, tzinfo=sp.TZ)
+    sp.now_local = lambda d=d: d
+    for _ in range(5000):
+        t = sp.target_entry()
+        if not (ini_e <= t <= fin_e and t % 60 != 0):
+            viol.append(("entry", fecha, t))
+        t = sp.target_exit()
+        if not (ini_x <= t <= fin_x and t % 60 != 0):
+            viol.append(("exit", fecha, t))
 check("5000 tiradas: nunca en punto (:00) y dentro de la ventana", viol, [])
 
 # --- 2. helpers de HTML --------------------------------------------------

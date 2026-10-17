@@ -9,19 +9,20 @@ externas (solo stdlib), pensado para el móvil (Termux).
 
 Uso:
   python3 sigma_punch.py           # modo diario: entrada + salida (para Pydroid)
-  python3 sigma_punch.py --entry   # entrada: aleatoria entre 10:05 y 10:08
-  python3 sigma_punch.py --exit    # salida:  aleatoria entre 18:05 y 18:08
+  python3 sigma_punch.py --entry   # entrada: aleatoria en la ventana de entrada
+  python3 sigma_punch.py --exit    # salida:  aleatoria en la ventana de salida
   python3 sigma_punch.py --test    # fichar ya (solo dentro de una ventana)
   python3 sigma_punch.py --check   # comprobar login y portal SIN fichar nada
   python3 sigma_punch.py --ver     # ver los fichajes de hoy (igual que en la web)
 
-Los fichajes SOLO se registran dentro de su ventana (entrada 10:05:00-10:08:59,
-salida 18:05:00-18:08:59). decidir() lo bloquea en todos los modos, --test
-incluido: fuera de la ventana no hay pulsacion posible.
+Los fichajes SOLO se registran dentro de su ventana (hasta el 18/10/2026:
+entrada 10:05:00-10:08:59 y salida 18:05:00-18:08:59; desde el 19/10/2026:
+entrada 09:59:00-10:01:59 y salida 18:00:00-18:02:59). decidir() lo bloquea en
+todos los modos, --test incluido: fuera de la ventana no hay pulsacion posible.
 
 Modo diario (Pydroid): sin argumentos ficha la entrada y luego la salida en la
 misma ejecución. Se lanza por la mañana y queda esperando todo el día. Si se
-lanza por la noche (después de que pasó la ventana de salida, 18:08:59), espera
+lanza por la noche (después de que pasó la ventana de salida), espera
 hasta la entrada del día siguiente y ficha entrada y salida de ese día.
 
 Variables de entorno:
@@ -128,9 +129,9 @@ def now_local() -> datetime:
 def seconds_of_day(dt: datetime) -> int:
     return dt.hour * 3600 + dt.minute * 60 + dt.second
 
-# Ventanas de fichaje.
-#   Entrada: 10:05:00 - 10:08:59
-#   Salida : 18:05:00 - 18:08:59
+# Ventanas de fichaje. Cambian el lunes 19/10/2026.
+#   Hasta el 18/10/2026:  entrada 10:05:00-10:08:59, salida 18:05:00-18:08:59
+#   Desde el 19/10/2026:  entrada 09:59:00-10:01:59, salida 18:00:00-18:02:59
 # Dentro de cada ventana se sortea un segundo, para no fichar siempre igual.
 ENTRY_START = 10 * 3600 + 5 * 60       # 10:05:00
 ENTRY_SPAN = 239                        # -> hasta 10:08:59
@@ -139,6 +140,34 @@ EXIT_SPAN = 239                        # -> hasta 18:08:59
 
 ENTRY_TXT = "10:05:00-10:08:59"
 EXIT_TXT = "18:05:00-18:08:59"
+
+# Ventana nueva, a partir del lunes 19/10/2026.
+VENTANA_NUEVA_DESDE = "19/10/2026"
+ENTRY_START_2 = 9 * 3600 + 59 * 60     # 09:59:00
+ENTRY_SPAN_2 = 179                      # -> hasta 10:01:59
+EXIT_START_2 = 18 * 3600               # 18:00:00
+EXIT_SPAN_2 = 179                      # -> hasta 18:02:59
+
+ENTRY_TXT_2 = "09:59:00-10:01:59"
+EXIT_TXT_2 = "18:00:00-18:02:59"
+
+_VENTANA_NUEVA_DESDE_DT = datetime.strptime(VENTANA_NUEVA_DESDE, "%d/%m/%Y").date()
+
+def ventana(mode: str, fecha=None) -> tuple:
+    """(inicio, span, texto) de la ventana del modo para esa fecha.
+
+    'fecha' es un datetime.date (por defecto, hoy). Hasta el 18/10/2026 se usa
+    la ventana antigua; desde el 19/10/2026, la nueva.
+    """
+    if fecha is None:
+        fecha = now_local().date()
+    if fecha >= _VENTANA_NUEVA_DESDE_DT:
+        if mode == "entry":
+            return ENTRY_START_2, ENTRY_SPAN_2, ENTRY_TXT_2
+        return EXIT_START_2, EXIT_SPAN_2, EXIT_TXT_2
+    if mode == "entry":
+        return ENTRY_START, ENTRY_SPAN, ENTRY_TXT
+    return EXIT_START, EXIT_SPAN, EXIT_TXT
 
 def _segundo_ventana(inicio: int, span: int) -> int:
     """Segundo aleatorio en [inicio, inicio+span], nunca en punto (:00).
@@ -150,12 +179,14 @@ def _segundo_ventana(inicio: int, span: int) -> int:
     return inicio + random.choice(permitidos)
 
 def target_entry() -> int:
-    """Segundo aleatorio en [10:05:00, 10:08:59], nunca en punto (:00)."""
-    return _segundo_ventana(ENTRY_START, ENTRY_SPAN)
+    """Segundo aleatorio en la ventana de entrada, nunca en punto (:00)."""
+    inicio, span, _ = ventana("entry")
+    return _segundo_ventana(inicio, span)
 
 def target_exit() -> int:
-    """Segundo aleatorio en [18:05:00, 18:08:59], nunca en punto (:00)."""
-    return _segundo_ventana(EXIT_START, EXIT_SPAN)
+    """Segundo aleatorio en la ventana de salida, nunca en punto (:00)."""
+    inicio, span, _ = ventana("exit")
+    return _segundo_ventana(inicio, span)
 
 def wait_until(target_secs: int, label: str) -> None:
     """Espera hasta que la hora local alcance target_secs (en tramos de 60 s)."""
@@ -433,15 +464,15 @@ def estado_boton(html: str) -> tuple:
                  "3": "SALIDA (boton rojo)"}
     return ct, etiquetas.get(ct, f"c_tip={ct or 'desconocido'}")
 
-def en_ventana(mode: str, ahora: int) -> bool:
+def en_ventana(mode: str, ahora: int, fecha=None) -> bool:
     """True si 'ahora' (segundos desde 00:00) cae dentro de la ventana del modo."""
-    if mode == "entry":
-        return ENTRY_START <= ahora <= ENTRY_START + ENTRY_SPAN
-    if mode == "exit":
-        return EXIT_START <= ahora <= EXIT_START + EXIT_SPAN
-    return True
+    if mode not in ("entry", "exit"):
+        return True
+    inicio, span, _ = ventana(mode, fecha)
+    return inicio <= ahora <= inicio + span
 
-def decidir(mode: str, c_tip: str, before: int, ahora: int | None = None) -> tuple:
+def decidir(mode: str, c_tip: str, before: int, ahora: int | None = None,
+            fecha=None) -> tuple:
     """Si hay que pulsar, segun el modo, el estado del portal y la hora.
 
     Devuelve (accion, mensaje) con accion en:
@@ -450,8 +481,10 @@ def decidir(mode: str, c_tip: str, before: int, ahora: int | None = None) -> tup
       "fallo"   -> no se puede fichar en este estado; NO se pulsa
 
     GARANTIAS (no hay forma de saltarselas, ni con --test):
-      * La ENTRADA solo se registra entre 10:05:00 y 10:08:59.
-      * La SALIDA  solo se registra entre 18:05:00 y 18:08:59.
+      * La ENTRADA solo se registra dentro de su ventana (hasta el 18/10/2026
+        10:05:00-10:08:59; desde el 19/10/2026 09:59:00-10:01:59).
+      * La SALIDA  solo se registra dentro de su ventana (hasta el 18/10/2026
+        18:05:00-18:08:59; desde el 19/10/2026 18:00:00-18:02:59).
       * Fuera de esa ventana NO se pulsa nunca, aunque el boton este en el
         color que sea. Esto es lo que evita una salida a las 10 de la
         manana: sin esta regla, un --entry repetido con el boton ya en
@@ -460,7 +493,8 @@ def decidir(mode: str, c_tip: str, before: int, ahora: int | None = None) -> tup
       * Cada dia como maximo dos fichajes: si ya hay 1, la entrada esta
         hecha; si ya hay 2, la salida esta hecha.
 
-    'ahora' (segundos del dia) se pasa para poder testear sin reloj real.
+    'ahora' (segundos del dia) y 'fecha' (date) se pasan para poder testear
+    sin reloj real.
     """
     if ahora is None:
         ahora = seconds_of_day(now_local())
@@ -476,9 +510,9 @@ def decidir(mode: str, c_tip: str, before: int, ahora: int | None = None) -> tup
         if c_tip != "1":
             return "fallo", (f"el boton esta en SALIDA (c_tip={c_tip}) con 0 "
                              f"fichajes hoy: estado incoherente, no se ficha")
-        if not en_ventana("entry", ahora):
-            return "fallo", (f"fuera de la ventana {ENTRY_TXT}: la entrada "
-                             f"solo se registra ahi")
+        if not en_ventana("entry", ahora, fecha):
+            return "fallo", (f"fuera de la ventana {ventana('entry', fecha)[2]}: "
+                             f"la entrada solo se registra ahi")
         return "pulsar", ""
 
     # mode == "exit"
@@ -490,9 +524,9 @@ def decidir(mode: str, c_tip: str, before: int, ahora: int | None = None) -> tup
     if c_tip not in ("2", "3"):
         return "fallo", (f"el boton esta en ENTRADA (c_tip={c_tip}) con la "
                          f"entrada ya hecha: pulsar duplicaria la entrada")
-    if not en_ventana("exit", ahora):
-        return "fallo", (f"fuera de la ventana {EXIT_TXT}: la salida solo se "
-                         f"registra ahi")
+    if not en_ventana("exit", ahora, fecha):
+        return "fallo", (f"fuera de la ventana {ventana('exit', fecha)[2]}: "
+                         f"la salida solo se registra ahi")
     return "pulsar", ""
 
 def do_punch(s: Session, cusu: str, c_tip: str) -> str:
@@ -681,12 +715,10 @@ def punch_once(mode: str, label: str) -> int:
     """Espera a la ventana del modo y ficha con reintentos. Devuelve 0 si OK."""
     base = datetime.combine(now_local().date(), datetime.min.time())
 
-    if mode == "entry":
-        target = target_entry()
-        window_end, window_txt = ENTRY_START + ENTRY_SPAN, ENTRY_TXT
-    elif mode == "exit":
-        target = target_exit()
-        window_end, window_txt = EXIT_START + EXIT_SPAN, EXIT_TXT
+    if mode in ("entry", "exit"):
+        target = target_entry() if mode == "entry" else target_exit()
+        inicio, span, window_txt = ventana(mode)
+        window_end = inicio + span
     else:
         target = seconds_of_day(now_local())
         window_end, window_txt = None, ""
@@ -807,8 +839,9 @@ def run_forever() -> int:
                     time.sleep(60)
         # Dorme hasta la entrada del día siguiente.
         manana = now_local() + timedelta(days=1)
-        objetivo = manana.replace(hour=ENTRY_START // 3600,
-                                  minute=(ENTRY_START % 3600) // 60,
+        inicio, _, _ = ventana("entry", manana.date())
+        objetivo = manana.replace(hour=inicio // 3600,
+                                  minute=(inicio % 3600) // 60,
                                   second=0, microsecond=0)
         segundos = (objetivo - now_local()).total_seconds()
         if segundos > 0:
@@ -822,10 +855,12 @@ def run_daily() -> int:
     espera hasta la entrada del día siguiente y ficha ese día.
     """
     now = now_local()
-    if seconds_of_day(now) > EXIT_START + EXIT_SPAN:
+    inicio_exit, span_exit, _ = ventana("exit")
+    if seconds_of_day(now) > inicio_exit + span_exit:
         tomorrow = now + timedelta(days=1)
-        target_dt = tomorrow.replace(hour=ENTRY_START // 3600,
-                                     minute=(ENTRY_START % 3600) // 60,
+        inicio, _, _ = ventana("entry", tomorrow.date())
+        target_dt = tomorrow.replace(hour=inicio // 3600,
+                                     minute=(inicio % 3600) // 60,
                                      second=0, microsecond=0)
         log(f"[Diario] hoy ya pasó; esperando a mañana {target_dt.strftime('%H:%M:%S')} ({TZ})")
         wait_until_datetime(target_dt, "Diario")

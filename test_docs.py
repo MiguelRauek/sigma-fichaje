@@ -30,7 +30,9 @@ def hhmmss(s):
 
 # --- 1. constantes de sigma_punch.py --------------------------------------
 NOMBRES = ("ENTRY_START", "ENTRY_SPAN", "EXIT_START", "EXIT_SPAN",
-           "ENTRY_TXT", "EXIT_TXT", "LAST_DAY")
+           "ENTRY_TXT", "EXIT_TXT", "LAST_DAY",
+           "ENTRY_START_2", "ENTRY_SPAN_2", "EXIT_START_2", "EXIT_SPAN_2",
+           "ENTRY_TXT_2", "EXIT_TXT_2", "VENTANA_NUEVA_DESDE")
 vals = {}
 for node in ast.parse((HERE / "sigma_punch.py").read_text(encoding="utf-8")).body:
     if (isinstance(node, ast.Assign) and len(node.targets) == 1
@@ -51,61 +53,83 @@ vent = {
     "entrada": (vals["ENTRY_START"], vals["ENTRY_START"] + vals["ENTRY_SPAN"]),
     "salida": (vals["EXIT_START"], vals["EXIT_START"] + vals["EXIT_SPAN"]),
 }
+vent2 = {
+    "entrada": (vals["ENTRY_START_2"], vals["ENTRY_START_2"] + vals["ENTRY_SPAN_2"]),
+    "salida": (vals["EXIT_START_2"], vals["EXIT_START_2"] + vals["EXIT_SPAN_2"]),
+}
 ok(vals["ENTRY_TXT"] == f'{hhmmss(vent["entrada"][0])}-{hhmmss(vent["entrada"][1])}',
    f'ENTRY_TXT coherente con ENTRY_START/SPAN -> {vals["ENTRY_TXT"]}')
 ok(vals["EXIT_TXT"] == f'{hhmmss(vent["salida"][0])}-{hhmmss(vent["salida"][1])}',
    f'EXIT_TXT coherente con EXIT_START/SPAN -> {vals["EXIT_TXT"]}')
+ok(vals["ENTRY_TXT_2"] == f'{hhmmss(vent2["entrada"][0])}-{hhmmss(vent2["entrada"][1])}',
+   f'ENTRY_TXT_2 coherente con ENTRY_START_2/SPAN_2 -> {vals["ENTRY_TXT_2"]}')
+ok(vals["EXIT_TXT_2"] == f'{hhmmss(vent2["salida"][0])}-{hhmmss(vent2["salida"][1])}',
+   f'EXIT_TXT_2 coherente con EXIT_START_2/SPAN_2 -> {vals["EXIT_TXT_2"]}')
 
-# --- 2b. la salida tiene que ser la entrada + 8 h exactas -----------------
+# --- 2b. la ventana antigua: salida = entrada + 8 h exactas ---------------
 ok(vent["salida"][0] - vent["entrada"][0] == 8 * 3600
    and vent["salida"][1] - vent["entrada"][1] == 8 * 3600,
-   "ventana de salida = ventana de entrada + 8 h (los dos extremos)")
+   "ventana antigua: salida = entrada + 8 h (los dos extremos)")
 
 # --- 3. la politica en si: no ha cambiado de sitio ------------------------
 ok(vent["entrada"] == (10 * 3600 + 5 * 60, 10 * 3600 + 8 * 60 + 59),
-   "ventana de entrada fijada en 10:05:00-10:08:59")
+   "ventana de entrada antigua fijada en 10:05:00-10:08:59")
 ok(vent["salida"] == (18 * 3600 + 5 * 60, 18 * 3600 + 8 * 60 + 59),
-   "ventana de salida fijada en 18:05:00-18:08:59")
+   "ventana de salida antigua fijada en 18:05:00-18:08:59")
 ok(vals["ENTRY_SPAN"] == 239 and vals["EXIT_SPAN"] == 239,
-   "duraciones: entrada 239 s, salida 239 s")
+   "duraciones antiguas: entrada 239 s, salida 239 s")
+ok(vent2["entrada"] == (9 * 3600 + 59 * 60, 10 * 3600 + 1 * 60 + 59),
+   "ventana de entrada nueva fijada en 09:59:00-10:01:59")
+ok(vent2["salida"] == (18 * 3600, 18 * 3600 + 2 * 60 + 59),
+   "ventana de salida nueva fijada en 18:00:00-18:02:59")
+ok(vals["ENTRY_SPAN_2"] == 179 and vals["EXIT_SPAN_2"] == 179,
+   "duraciones nuevas: entrada 179 s, salida 179 s")
+ok(vals["VENTANA_NUEVA_DESDE"] == "19/10/2026",
+   f'VENTANA_NUEVA_DESDE = {vals["VENTANA_NUEVA_DESDE"]}')
 
-# --- 4. cada doc sigue mencionando los cuatro extremos --------------------
+# --- 4. cada doc sigue mencionando los extremos ---------------------------
 DOCS = ("README.md", "INSTRUCCIONES.txt", "instrucciones.html", "reloj.sh")
 for doc in DOCS:
     txt = (HERE / doc).read_text(encoding="utf-8")
-    for tok in ("10:05", "10:08", "18:05", "18:08"):
+    for tok in ("10:05", "10:08", "18:05", "18:08",
+                "09:59", "10:01", "18:00", "18:02"):
         ok(tok in txt, f"{doc} menciona {tok}")
 
 # --- 5. sin restos de los rangos viejos -----------------------------------
-# 18:02 era el corte viejo de salida; 18:10:59 el final viejo de la salida;
-# 10:11/18:11:59/10:10:00 los finales viejos de la entrada; y los rangos
-# anteriores a este cambio (10:06-10:09 / 18:06-18:09)
-VIEJOS = ("18:02", "18:10:59", "10:11", "18:11:59", "10:10:00",
+# 18:10:59 el final viejo de la salida; 10:11/18:11:59/10:10:00 los finales
+# viejos de la entrada; y los rangos anteriores a este cambio
+# (10:06-10:09 / 18:06-18:09). OJO: 18:02 ya NO es viejo (es el fin de la
+# ventana nueva de salida).
+VIEJOS = ("18:10:59", "10:11", "18:11:59", "10:10:00",
           "10:06", "10:09", "18:06", "18:09")
 for doc in DOCS:
     txt = (HERE / doc).read_text(encoding="utf-8")
     for viejo in VIEJOS:
         ok(viejo not in txt, f"{doc} sin restos de rangos viejos ({viejo})")
 
-# --- 6. las bandas del reloj cubren la ventana entera ---------------------
+# --- 6. las bandas del reloj cubren las dos ventanas ----------------------
 # Los jobs corren cada 15 min, así que la banda tiene que ser continua y
 # tener mas de 15 min, o podria saltarse la ventana.
 reloj = (HERE / "reloj.sh").read_text(encoding="utf-8")
 globs = re.findall(r"^\s*([0-9|\[\]-]+)\)\s+M=(--\w+)", reloj, re.M)
+for nombre, v in (("antigua", vent), ("nueva", vent2)):
+    for modo, (a, b) in v.items():
+        flag = "--entry" if modo == "entrada" else "--exit"
+        patrones = [p for pat, m in globs if m == flag for p in pat.split("|")]
+        ok(bool(patrones), f"reloj.sh declara banda para {modo} ({nombre})")
+        cubren = [
+            f"{t // 3600:02d}{(t % 3600) // 60:02d}"
+            for t in range(a, b + 1, 60)
+            if any(fnmatch.fnmatch(f"{t // 3600:02d}{(t % 3600) // 60:02d}", p)
+                   for p in patrones)
+        ]
+        total = len(list(range(a, b + 1, 60)))
+        ok(len(cubren) == total,
+           f"reloj.sh: banda {modo} ({nombre}) cubre toda la ventana "
+           f"({len(cubren)}/{total} minutos)")
 for modo, (a, b) in vent.items():
     flag = "--entry" if modo == "entrada" else "--exit"
     patrones = [p for pat, m in globs if m == flag for p in pat.split("|")]
-    ok(bool(patrones), f"reloj.sh declara banda para {modo}")
-    cubren = [
-        f"{t // 3600:02d}{(t % 3600) // 60:02d}"
-        for t in range(a, b + 1, 60)
-        if any(fnmatch.fnmatch(f"{t // 3600:02d}{(t % 3600) // 60:02d}", p)
-               for p in patrones)
-    ]
-    total = len(list(range(a, b + 1, 60)))
-    ok(len(cubren) == total,
-       f"reloj.sh: banda {modo} cubre toda la ventana "
-       f"({len(cubren)}/{total} minutos)")
     if patrones:
         todos = sorted(
             int(f"{h:02d}{m:02d}")

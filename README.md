@@ -7,14 +7,14 @@ Todo ocurre en el móvil (Termux) y el móvil es el único que hace el fichaje.
 
 | Fichaje | Ventana |
 |---|---|
-| **Entrada** | Segundo aleatorio entre **10:05:00 y 10:08:59** |
-| **Salida** | Segundo aleatorio entre **18:05:00 y 18:08:59** |
+| **Entrada** | Segundo aleatorio entre **10:05:00 y 10:08:59** (hasta el 18/10/2026) y entre **09:59:00 y 10:01:59** (desde el 19/10/2026) |
+| **Salida** | Segundo aleatorio entre **18:05:00 y 18:08:59** (hasta el 18/10/2026) y entre **18:00:00 y 18:02:59** (desde el 19/10/2026) |
 
 El segundo nunca es en punto: `10:07:00`, `18:05:00`, etc. no se usan
 (siempre `:01`–`:59`).
 
 Cada día se sortea un segundo nuevo dentro de cada ventana. Nada se ficha
-antes de las 10:05 ni antes de las 18:05.
+antes de que empiece la ventana del día.
 
 **Ningún fichaje puede registrarse fuera de su rango**, y no es una
 costumbre del reloj: lo bloquea el propio programa (`decidir()`), en todos
@@ -34,9 +34,10 @@ dos fichajes: con uno hecha la entrada está hecha, con dos la salida.
    ese `c_tip`, el número de fichajes de hoy **y la hora**:
    - dentro de la ventana y coincide → se pulsa con el `c_tip` del portal;
    - el fichaje de ese modo ya está hecho → se da por bueno, sin error;
-   - **fuera de la ventana del modo (entrada 10:05–10:08:59, salida
-     18:05–18:08:59) → no se pulsa**, aunque el botón esté en el color
-     que sea;
+   - **fuera de la ventana del modo → no se pulsa**, aunque el botón esté en
+     el color que sea (hasta el 18/10/2026: entrada 10:05–10:08:59 y salida
+     18:05–18:08:59; desde el 19/10/2026: entrada 09:59–10:01:59 y salida
+     18:00–18:02:59);
    - no coincide (p. ej. un `--entry` con el botón ya en rojo) → **no se
      pulsa**, para nunca registrar una salida a las 10 de la mañana.
 4. **Fichar**: POST `c_usu` + `c_tip` (el leído) + `fic_subtipo=0` (horas
