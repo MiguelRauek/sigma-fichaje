@@ -35,13 +35,16 @@ dos fichajes: con uno hecha la entrada está hecha, con dos la salida.
 
 ## Actualización automática
 
-`reloj.sh` compara el **ETag** de `sigma_punch.py` y de sí mismo contra
-GitHub en **cada latido** (~cada 15 min), pero **solo fuera de las bandas de
-fichaje** (nunca en las bandas de entrada ni de salida): así una comprobación
-lenta o sin cobertura no puede retrasar un fichaje.
+`reloj.sh` consulta en **cada latido** (~cada 15 min) el **sha del último
+commit** en GitHub, pero **solo fuera de las bandas de fichaje**: así una
+comprobación lenta o sin cobertura no puede retrasar un fichaje.
 
-- Si el ETag no cambió: no descarga nada (petición HEAD, ~200 bytes).
-- Si cambió: descarga, reemplaza con `mv` (atómico) y **avisa por Telegram**.
+- Una sola petición (~2 KB: `GET /commits/main`) da la versión de los dos ficheros.
+- Si el sha no cambió: no descarga nada.
+- Si cambió: baja `sigma_punch.py` y `reloj.sh` **por ese sha** (inmutable, sin
+  caché vieja), los reemplaza con `os.replace` (atómico) y **avisa por Telegram**
+  con la versión corta (p. ej. `reloj actualizado a 8f159a3 — sigma_punch.py`).
+- La marca de versión se guarda en `~/.sigma_version`.
 - Coste: ~94 comprobaciones al día ≈ 20 KB. Retraso máximo de un arreglo: 15 min.
 - No necesita `curl`: usa `python3`, que ya es imprescindible para fichar.
 - `config.json` (credenciales) no está en el repo: nunca se toca.
