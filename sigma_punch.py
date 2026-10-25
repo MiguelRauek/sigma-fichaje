@@ -131,11 +131,13 @@ def seconds_of_day(dt: datetime) -> int:
 
 # Ventanas de fichaje. Cambian el lunes 19/10/2026.
 #   Hasta el 18/10/2026:  entrada 10:05:00-10:08:59, salida 18:05:00-18:08:59
-#   Desde el 19/10/2026:  entrada 09:59:00-10:01:59, salida 18:00:00-18:08:59
-# Dentro de cada ventana se sortea un segundo, para no fichar siempre igual.
-# El 95% de las tiradas cae en el primer cuarto de la ventana (ver
-# _segundo_ventana): asi casi siempre se ficha nada mas abrir, pero de vez en
-# cuando cae mas tarde y no parece un reloj perfecto.
+#   Desde el 19/10/2026:  entrada 09:59:00-10:02:59, salida 18:00:00-18:08:59
+# Dentro de cada ventana se sortea la hora de fichaje, para no fichar siempre
+# igual. En las ventanas nuevas se sortea por MINUTOS con pesos (ver
+# PESOS_ENTRADA / PESOS_SALIDA): casi siempre 10:00-10:02 y 18:00-18:02, y de
+# vez en cuando 09:59. Antes se concentraba el 95% en el primer cuarto, pero
+# como el primer cuarto de la entrada son 45 s, salia 09:59 TODOS los dias y
+# cantaba demasiado.
 # La salida se amplio a 18:00:00-18:08:59 el 25/10/2026: con la ventana de 3
 # minutos, el latido de las 18:03:41 (Android retrasa la job ~30 s cada vez)
 # llegaba 42 s tarde y la salida no se fichaba.
@@ -150,12 +152,22 @@ EXIT_TXT = "18:05:00-18:08:59"
 # Ventana nueva, a partir del lunes 19/10/2026.
 VENTANA_NUEVA_DESDE = "19/10/2026"
 ENTRY_START_2 = 9 * 3600 + 59 * 60     # 09:59:00
-ENTRY_SPAN_2 = 179                      # -> hasta 10:01:59
+ENTRY_SPAN_2 = 239                      # -> hasta 10:02:59
 EXIT_START_2 = 18 * 3600               # 18:00:00
 EXIT_SPAN_2 = 539                      # -> hasta 18:08:59
 
-ENTRY_TXT_2 = "09:59:00-10:01:59"
+ENTRY_TXT_2 = "09:59:00-10:02:59"
 EXIT_TXT_2 = "18:00:00-18:08:59"
+
+# Hora del fichaje dentro de las ventanas nuevas: se sortea POR MINUTOS con
+# estos pesos (minuto 0 = el primero de la ventana).
+#   entrada: 09:59 (poco), 10:00, 10:01, 10:02
+#   salida : 18:00, 18:01, 18:02, 18:03 (poco)
+# Los minutos que no estan en la lista NO se usan como objetivo: el resto de
+# la ventana solo es margen por si el latido del movil llega tarde.
+# Ademas nunca se repite el mismo minuto dos dias seguidos (ver _sortear_minuto).
+PESOS_ENTRADA = (0.10, 0.40, 0.30, 0.20)
+PESOS_SALIDA = (0.40, 0.30, 0.20, 0.10)
 
 # Probabilidad de que el segundo sorteado caiga en el primer cuarto de la
 # ventana. El resto (1 - P) se reparte por los otros tres cuartos.
@@ -179,17 +191,78 @@ def ventana(mode: str, fecha=None) -> tuple:
         return ENTRY_START, ENTRY_SPAN, ENTRY_TXT
     return EXIT_START, EXIT_SPAN, EXIT_TXT
 
+_ULTIMO_FICHERO = os.path.join(os.path.expanduser("~"), ".sigma_ultimo")
+
+
+def _leer_ultimo_minuto(inicio: int) -> str:
+    """Minuto sorteado la ultima vez para esta ventana ('' si no hay nada)."""
+    clave = f"{inicio}:"
+    try:
+        with open(_ULTIMO_FICHERO, encoding="utf-8") as f:
+            lineas = f.read().splitlines()
+    except OSError:
+        return ""
+    for linea in lineas:
+        if linea.startswith(clave):
+            return linea[len(clave):]
+    return ""
+
+
+def _guardar_ultimo_minuto(inicio: int, minuto: int) -> None:
+    """Apunta el minuto usado. Si no se puede escribir, se ignora."""
+    clave = f"{inicio}:"
+    try:
+        with open(_ULTIMO_FICHERO, encoding="utf-8") as f:
+            lineas = f.read().splitlines()
+    except OSError:
+        lineas = []
+    lineas = [l for l in lineas if not l.startswith(clave)]
+    lineas.append(f"{clave}{minuto}")
+    try:
+        with open(_ULTIMO_FICHERO, "w", encoding="utf-8") as f:
+            f.write("\n".join(lineas) + "\n")
+    except OSError:
+        pass
+
+
+def _minutos_con_peso(inicio: int, span: int):
+    """[(minuto, peso)] de la ventana, o None si es de las antiguas."""
+    if inicio == ENTRY_START_2:
+        pesos = PESOS_ENTRADA
+    elif inicio == EXIT_START_2:
+        pesos = PESOS_SALIDA
+    else:
+        return None
+    ultimo_minuto = span // 60
+    return [(i, w) for i, w in enumerate(pesos) if w > 0 and i <= ultimo_minuto]
+
+
+def _sortear_minuto(inicio: int, minutos) -> int:
+    """Minuto con peso, sin repetir el de la vez anterior de la misma ventana."""
+    elegido = random.choices([m for m, _ in minutos],
+                             weights=[w for _, w in minutos])[0]
+    if len(minutos) > 1 and str(elegido) == _leer_ultimo_minuto(inicio):
+        otros = [(m, w) for m, w in minutos if m != elegido]
+        elegido = random.choices([m for m, _ in otros],
+                                 weights=[w for _, w in otros])[0]
+    _guardar_ultimo_minuto(inicio, elegido)
+    return elegido
+
+
 def _segundo_ventana(inicio: int, span: int) -> int:
-    """Segundo aleatorio en [inicio, inicio+span], nunca en punto (:00).
+    """Segundo aleatorio dentro de la ventana, nunca en punto (:00).
 
-    El segundo 0 de cada minuto queda fuera: 10:07:00, 18:05:00, etc.
-    nunca se usan como hora de fichaje.
+    En las ventanas nuevas se elige el MINUTO con los pesos de PESOS_ENTRADA /
+    PESOS_SALIDA y despues un segundo entre 1 y 59, asi que 09:59 solo sale de
+    vez en cuando y nunca dos dias seguidos el mismo minuto.
 
-    El PRIMER CUARTO de la ventana concentra el 95% de las tiradas; el 5%
-    restante se reparte por el resto de la ventana. Asi el fichaje cae casi
-    siempre al principio (que es lo que cuadra con el horario) pero de vez en
-    cuando sale mas tarde, y no parece un reloj perfecto.
+    En la ventana antigua (hasta el 18/10/2026) se mantiene el criterio de
+    entonces: el 95% en el primer cuarto y el resto repartido.
     """
+    minutos = _minutos_con_peso(inicio, span)
+    if minutos:
+        return inicio + _sortear_minuto(inicio, minutos) * 60 + random.randint(1, 59)
+
     corte = span // 4
     if random.random() < P_PRIMER_CUARTO:
         zona = range(0, corte + 1)

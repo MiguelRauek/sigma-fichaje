@@ -21,7 +21,7 @@ echo "$(date '+%d/%m %H:%M:%S') reloj activo" >> fichaje_boot.log
 # solto el candado de la de las 09:43, el movil se durmio y la entrada no se
 # ficho). Si falta termux-api, el movil se duerme igualmente.
 #   entrada  fichar entre 10:05:00 y 10:08:59 (hasta el 18/10/2026)
-#            y entre 09:59:00 y 10:01:59 (desde el 19/10/2026)
+#            y entre 09:59:00 y 10:02:59 (desde el 19/10/2026)
 #   salida   fichar entre 18:05:00 y 18:08:59 (hasta el 18/10/2026)
 #            y entre 18:00:00 y 18:08:59 (desde el 19/10/2026)
 case "$H" in

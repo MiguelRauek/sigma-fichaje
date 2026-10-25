@@ -7,16 +7,19 @@ Todo ocurre en el móvil (Termux) y el móvil es el único que hace el fichaje.
 
 | Fichaje | Ventana |
 |---|---|
-| **Entrada** | Segundo aleatorio entre **10:05:00 y 10:08:59** (hasta el 18/10/2026) y entre **09:59:00 y 10:01:59** (desde el 19/10/2026) |
+| **Entrada** | Segundo aleatorio entre **10:05:00 y 10:08:59** (hasta el 18/10/2026) y entre **09:59:00 y 10:02:59** (desde el 19/10/2026) |
 | **Salida** | Segundo aleatorio entre **18:05:00 y 18:08:59** (hasta el 18/10/2026) y entre **18:00:00 y 18:08:59** (desde el 19/10/2026) |
 
 El segundo nunca es en punto: `10:07:00`, `18:05:00`, etc. no se usan
 (siempre `:01`–`:59`).
 
-**Reparto del sorteo:** el **95 %** de las veces el segundo cae en el
-**primer cuarto** de la ventana (casi siempre ficha nada más abrir); el 5 %
-restante se reparte por el resto de la ventana, para que no parezca un reloj
-perfecto. Ver `P_PRIMER_CUARTO` y `_segundo_ventana()` en `sigma_punch.py`.
+**Reparto del sorteo (ventanas nuevas):** se sortea el **minuto**, no un
+segundo suelto. Entrada: **10:00 el 40 %**, 10:01 el 30 %, 10:02 el 20 % y
+**09:59 solo el 10 %**. Salida: 18:00 el 40 %, 18:01 el 30 %, 18:02 el 20 % y
+18:03 el 10 %. Además **nunca se repite el mismo minuto dos días seguidos**.
+Los minutos de después (10:03–10:59 y 18:04–18:08:59) no se sortean: solo son
+margen por si el latido del móvil llega tarde. Ver `PESOS_ENTRADA`,
+`PESOS_SALIDA` y `_sortear_minuto()` en `sigma_punch.py`.
 
 **Por qué la salida acaba a las 18:08:59 y no a las 18:02:59:** con la
 ventana de 3 minutos, el latido de las 18:03:41 del 25/10/2026 (Android
@@ -64,7 +67,7 @@ Solo hizo falta una vez, para instalar este `reloj.sh`.
    - el fichaje de ese modo ya está hecho → se da por bueno, sin error;
    - **fuera de la ventana del modo → no se pulsa**, aunque el botón esté en
      el color que sea (hasta el 18/10/2026: entrada 10:05–10:08:59 y salida
-     18:05–18:08:59; desde el 19/10/2026: entrada 09:59–10:01:59 y salida
+     18:05–18:08:59; desde el 19/10/2026: entrada 09:59–10:02:59 y salida
      18:00–18:08:59);
    - no coincide (p. ej. un `--entry` con el botón ya en rojo) → **no se
      pulsa**, para nunca registrar una salida a las 10 de la mañana.

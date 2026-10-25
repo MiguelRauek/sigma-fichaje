@@ -78,12 +78,12 @@ ok(vent["salida"] == (18 * 3600 + 5 * 60, 18 * 3600 + 8 * 60 + 59),
    "ventana de salida antigua fijada en 18:05:00-18:08:59")
 ok(vals["ENTRY_SPAN"] == 239 and vals["EXIT_SPAN"] == 239,
    "duraciones antiguas: entrada 239 s, salida 239 s")
-ok(vent2["entrada"] == (9 * 3600 + 59 * 60, 10 * 3600 + 1 * 60 + 59),
-   "ventana de entrada nueva fijada en 09:59:00-10:01:59")
+ok(vent2["entrada"] == (9 * 3600 + 59 * 60, 10 * 3600 + 2 * 60 + 59),
+   "ventana de entrada nueva fijada en 09:59:00-10:02:59")
 ok(vent2["salida"] == (18 * 3600, 18 * 3600 + 8 * 60 + 59),
    "ventana de salida nueva fijada en 18:00:00-18:08:59")
-ok(vals["ENTRY_SPAN_2"] == 179 and vals["EXIT_SPAN_2"] == 539,
-   "duraciones nuevas: entrada 179 s, salida 539 s (9 min)")
+ok(vals["ENTRY_SPAN_2"] == 239 and vals["EXIT_SPAN_2"] == 539,
+   "duraciones nuevas: entrada 239 s (4 min), salida 539 s (9 min)")
 ok(vals["VENTANA_NUEVA_DESDE"] == "19/10/2026",
    f'VENTANA_NUEVA_DESDE = {vals["VENTANA_NUEVA_DESDE"]}')
 
@@ -92,7 +92,7 @@ DOCS = ("README.md", "INSTRUCCIONES.txt", "instrucciones.html", "reloj.sh")
 for doc in DOCS:
     txt = (HERE / doc).read_text(encoding="utf-8")
     for tok in ("10:05", "10:08", "18:05", "18:08",
-                "09:59", "10:01", "18:00"):
+                "09:59", "10:02", "18:00"):
         ok(tok in txt, f"{doc} menciona {tok}")
 
 # --- 5. sin restos de los rangos viejos -----------------------------------

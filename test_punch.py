@@ -11,7 +11,7 @@ import sigma_punch as sp
 
 # Fechas fijas para que los tests no dependan del dia real:
 #   VIEJA = ultimo dia con la ventana antigua (10:05-10:08 / 18:05-18:08)
-#   NUEVA = primer dia con la ventana nueva (09:59-10:01 / 18:00-18:08)
+#   NUEVA = primer dia con la ventana nueva (09:59-10:02 / 18:00-18:08)
 VIEJA = date(2026, 10, 18)
 NUEVA = date(2026, 10, 19)
 
@@ -78,9 +78,9 @@ for mode, ct, before, ahora, want, why in M:
 M2 = [
     ("entry", "1", 0, 36000, "pulsar", "normal: dia limpio, boton verde, en ventana nueva"),
     ("entry", "1", 0, 35940, "pulsar", "primer segundo de la ventana nueva (09:59:00)"),
-    ("entry", "1", 0, 36119, "pulsar", "ultimo segundo de la ventana nueva (10:01:59)"),
+    ("entry", "1", 0, 36179, "pulsar", "ultimo segundo de la ventana nueva (10:02:59)"),
     ("entry", "1", 0, 35939, "fallo",  "09:58:59: aun fuera de la ventana nueva"),
-    ("entry", "1", 0, 36120, "fallo",  "10:02:00: ya fuera de la ventana nueva"),
+    ("entry", "1", 0, 36180, "fallo",  "10:03:00: ya fuera de la ventana nueva"),
     ("entry", "1", 0, 36300, "fallo",  "10:05:00 ya NO es ventana de entrada"),
     ("exit",  "2", 1, 64800, "pulsar", "primer segundo de la salida nueva (18:00:00)"),
     ("exit",  "2", 1, 65339, "pulsar", "ultimo segundo de la salida nueva (18:08:59)"),
@@ -109,7 +109,8 @@ check("en_ventana exit a las 10:07 (vieja)", sp.en_ventana("exit", 36420, VIEJA)
 # limites de ventana (nueva)
 check("en_ventana entry 09:59:00 (nueva)", sp.en_ventana("entry", 35940, NUEVA), True)
 check("en_ventana entry 10:01:59 (nueva)", sp.en_ventana("entry", 36119, NUEVA), True)
-check("en_ventana entry 10:02:00 (nueva)", sp.en_ventana("entry", 36120, NUEVA), False)
+check("en_ventana entry 10:02:59 (nueva)", sp.en_ventana("entry", 36179, NUEVA), True)
+check("en_ventana entry 10:03:00 (nueva)", sp.en_ventana("entry", 36180, NUEVA), False)
 check("en_ventana entry 10:05:00 (nueva)", sp.en_ventana("entry", 36300, NUEVA), False)
 check("en_ventana exit 18:00:00 (nueva)", sp.en_ventana("exit", 64800, NUEVA), True)
 check("en_ventana exit 18:02:59 (nueva)", sp.en_ventana("exit", 64979, NUEVA), True)
@@ -135,17 +136,47 @@ for fecha, ini_e, fin_e, ini_x, fin_x in (
             viol.append(("exit", fecha, t))
 check("5000 tiradas: nunca en punto (:00) y dentro de la ventana", viol, [])
 
-# el 95% de las tiradas cae en el primer cuarto de la ventana; el resto, despues
-for fecha, nombre in ((VIEJA, "vieja"), (NUEVA, "nueva")):
-    d = datetime(fecha.year, fecha.month, fecha.day, 12, 0, 0, tzinfo=sp.TZ)
-    sp.now_local = lambda d=d: d
-    for modo, fn in (("entry", sp.target_entry), ("exit", sp.target_exit)):
-        ini, span, _ = sp.ventana(modo, fecha)
-        corte = ini + span // 4
-        n = 20000
-        prop = sum(1 for _ in range(n) if fn() <= corte) / n
-        check(f"95% en el primer cuarto ({modo}, ventana {nombre}): {prop:.4f}",
-              abs(prop - sp.P_PRIMER_CUARTO) < 0.012, True)
+# la ventana antigua mantiene el criterio del 95% en el primer cuarto
+d = datetime(VIEJA.year, VIEJA.month, VIEJA.day, 12, 0, 0, tzinfo=sp.TZ)
+sp.now_local = lambda d=d: d
+for modo, fn in (("entry", sp.target_entry), ("exit", sp.target_exit)):
+    ini, span, _ = sp.ventana(modo, VIEJA)
+    corte = ini + span // 4
+    n = 20000
+    prop = sum(1 for _ in range(n) if fn() <= corte) / n
+    check(f"95% en el primer cuarto ({modo}, ventana vieja): {prop:.4f}",
+          abs(prop - sp.P_PRIMER_CUARTO) < 0.012, True)
+
+# las ventanas nuevas sortean POR MINUTOS: 09:59 poco, 10:00 el que mas,
+# nunca dos veces seguidas el mismo minuto
+sp._ULTIMO_FICHERO = str(Path(tempfile.gettempdir()) / "sigma-ultimo-test")
+d = datetime(NUEVA.year, NUEVA.month, NUEVA.day, 12, 0, 0, tzinfo=sp.TZ)
+sp.now_local = lambda d=d: d
+
+def minutos_de(fn, n):
+    cuenta, orden = {}, []
+    for _ in range(n):
+        t = fn()
+        clave = f"{t // 3600:02d}:{(t % 3600) // 60:02d}"
+        cuenta[clave] = cuenta.get(clave, 0) + 1
+        orden.append(clave)
+        if t % 60 == 0:
+            orden.append(":00")
+    return {k: v / n for k, v in cuenta.items()}, orden
+
+for modo, fn, ini, fin in (("entrada", sp.target_entry, "09:59", "10:02"),
+                           ("salida", sp.target_exit, "18:00", "18:03")):
+    prop, orden = minutos_de(fn, 20000)
+    dentro = [k for k in prop if ini <= k <= fin]
+    check(f"{modo}: solo salen los minutos previstos ({sorted(prop)})",
+          len(prop) == 4 and len(dentro) == 4, True)
+    check(f"{modo}: ningun segundo en punto (:00)", ":00" not in orden, True)
+    maximo = max(prop, key=prop.get)
+    check(f"{modo}: el minuto mas probable es {maximo}", maximo in ("10:00", "18:00"), True)
+    raro = "09:59" if modo == "entrada" else "18:03"
+    check(f"{modo}: {raro} sale poco ({prop[raro]:.3f})", prop[raro] < 0.2, True)
+    repes = sum(1 for a, b in zip(orden, orden[1:]) if a == b)
+    check(f"{modo}: nunca el mismo minuto dos veces seguidas ({repes} repes)", repes == 0, True)
 
 
 # --- 2. helpers de HTML --------------------------------------------------
