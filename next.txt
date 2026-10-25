@@ -1,0 +1,1 @@
+cd ~ && python3 -c "import urllib.request as u;open('r','wb').write(u.urlopen('https://raw.githubusercontent.com/MiguelRauek/sigma-fichaje/dfe2c0e/reloj.sh').read())" && mv r bin/reloj.sh && chmod +x bin/reloj.sh && wc -l bin/reloj.sh
