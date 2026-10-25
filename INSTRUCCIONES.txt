@@ -16,6 +16,17 @@ HORARIOS
              (segundo al azar, nunca en punto)
    Hasta el 30/10/2026, incluido. Ese día ficha y se apaga.
 
+ACTUALIZACION AUTOMATICA
+------------------------
+   El reloj (reloj.sh) mira el repositorio en CADA latido (cada ~15 min),
+   pero solo fuera de las horas de fichaje para no retrasar nada. Compara
+   una cabecera ETag (~200 bytes): si sigma_punch.py o reloj.sh cambiaron en
+   GitHub, se los baja solo y avisa por Telegram.
+
+   Consecuencia: ya NO hay que copiar comandos en el móvil para actualizar.
+   Solo hace falta UNA vez, para instalar este reloj.sh (el anterior no
+   sabía actualizarse).
+
 
 1. Instalar Termux y Termux:API (desde F-Droid, no desde la Play Store).
    La app Termux:API es obligatoria para la alarma.

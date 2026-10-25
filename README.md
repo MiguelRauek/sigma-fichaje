@@ -33,6 +33,22 @@ dos fichajes: con uno hecha la entrada está hecha, con dos la salida.
 
 **Periodo: hasta el 30/10/2026, incluido.** Ese día ficha y luego se apaga solo.
 
+## Actualización automática
+
+`reloj.sh` compara el **ETag** de `sigma_punch.py` y de sí mismo contra
+GitHub en **cada latido** (~cada 15 min), pero **solo fuera de las bandas de
+fichaje** (nunca en las bandas de entrada ni de salida): así una comprobación
+lenta o sin cobertura no puede retrasar un fichaje.
+
+- Si el ETag no cambió: no descarga nada (petición HEAD, ~200 bytes).
+- Si cambió: descarga, reemplaza con `mv` (atómico) y **avisa por Telegram**.
+- Coste: ~94 comprobaciones al día ≈ 20 KB. Retraso máximo de un arreglo: 15 min.
+- No necesita `curl`: usa `python3`, que ya es imprescindible para fichar.
+- `config.json` (credenciales) no está en el repo: nunca se toca.
+
+**Consecuencia: no hay que copiar comandos en el móvil para actualizar.**
+Solo hizo falta una vez, para instalar este `reloj.sh`.
+
 ## Cómo funciona
 
 1. **Login**: POST `cf_usu` + `cf_pass` a `https://sigmatime.es/acceso.php` → cookie de sesión.
