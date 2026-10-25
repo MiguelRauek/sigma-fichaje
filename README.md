@@ -13,8 +13,8 @@ Todo ocurre en el móvil (Termux) y el móvil es el único que hace el fichaje.
 El segundo nunca es en punto: `10:07:00`, `18:05:00`, etc. no se usan
 (siempre `:01`–`:59`).
 
-**Reparto del sorteo (ventanas nuevas):** se sortea el **minuto**, no un
-segundo suelto. Entrada: **10:00 el 40 %**, 10:01 el 30 %, 10:02 el 20 % y
+**Reparto del sorteo (ventanas nuevas):** se sortea el **minuto**, y dentro
+de ese minuto un **segundo cualquiera entre `:01` y `:59`** (nunca en punto). Entrada: **10:00 el 40 %**, 10:01 el 30 %, 10:02 el 20 % y
 **09:59 solo el 10 %**. Salida: 18:00 el 40 %, 18:01 el 30 %, 18:02 el 20 % y
 18:03 el 10 %. Además **nunca se repite el mismo minuto dos días seguidos**.
 Los minutos de después (10:03–10:59 y 18:04–18:08:59) no se sortean: solo son
