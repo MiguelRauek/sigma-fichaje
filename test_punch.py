@@ -11,7 +11,7 @@ import sigma_punch as sp
 
 # Fechas fijas para que los tests no dependan del dia real:
 #   VIEJA = ultimo dia con la ventana antigua (10:05-10:08 / 18:05-18:08)
-#   NUEVA = primer dia con la ventana nueva (09:59-10:01 / 18:00-18:02)
+#   NUEVA = primer dia con la ventana nueva (09:59-10:01 / 18:00-18:08)
 VIEJA = date(2026, 10, 18)
 NUEVA = date(2026, 10, 19)
 
@@ -73,8 +73,8 @@ for mode, ct, before, ahora, want, why in M:
 # --- 1b. matriz decidir() con la ventana NUEVA (desde el 19/10/2026) ------
 # segundos del dia: 09:58:59=35939 09:59:00=35940 10:00=36000 10:01:59=36119
 #                    10:02:00=36120 10:05=36300 10:08:59=36539
-#                    17:59:59=64799 18:00:00=64800 18:02:59=64979
-#                    18:03:00=64980 18:05=65100
+#                    17:59:59=64799 18:00:00=64800 18:08:59=65339
+#                    18:09:00=65340 18:10=65400
 M2 = [
     ("entry", "1", 0, 36000, "pulsar", "normal: dia limpio, boton verde, en ventana nueva"),
     ("entry", "1", 0, 35940, "pulsar", "primer segundo de la ventana nueva (09:59:00)"),
@@ -83,10 +83,10 @@ M2 = [
     ("entry", "1", 0, 36120, "fallo",  "10:02:00: ya fuera de la ventana nueva"),
     ("entry", "1", 0, 36300, "fallo",  "10:05:00 ya NO es ventana de entrada"),
     ("exit",  "2", 1, 64800, "pulsar", "primer segundo de la salida nueva (18:00:00)"),
-    ("exit",  "2", 1, 64979, "pulsar", "ultimo segundo de la salida nueva (18:02:59)"),
+    ("exit",  "2", 1, 65339, "pulsar", "ultimo segundo de la salida nueva (18:08:59)"),
+    ("exit",  "2", 1, 64841, "pulsar", "18:02:41: la salida nueva ya no acaba a las 18:02:59"),
     ("exit",  "2", 1, 64799, "fallo",  "17:59:59: aun fuera de la salida nueva"),
-    ("exit",  "2", 1, 64980, "fallo",  "18:03:00: ya fuera de la salida nueva"),
-    ("exit",  "2", 1, 65100, "fallo",  "18:05:00 ya NO es ventana de salida"),
+    ("exit",  "2", 1, 65340, "fallo",  "18:09:00: ya fuera de la salida nueva"),
 ]
 for mode, ct, before, ahora, want, why in M2:
     got = sp.decidir(mode, ct, before, ahora, NUEVA)
@@ -113,8 +113,9 @@ check("en_ventana entry 10:02:00 (nueva)", sp.en_ventana("entry", 36120, NUEVA),
 check("en_ventana entry 10:05:00 (nueva)", sp.en_ventana("entry", 36300, NUEVA), False)
 check("en_ventana exit 18:00:00 (nueva)", sp.en_ventana("exit", 64800, NUEVA), True)
 check("en_ventana exit 18:02:59 (nueva)", sp.en_ventana("exit", 64979, NUEVA), True)
-check("en_ventana exit 18:03:00 (nueva)", sp.en_ventana("exit", 64980, NUEVA), False)
-check("en_ventana exit 18:05:00 (nueva)", sp.en_ventana("exit", 65100, NUEVA), False)
+check("en_ventana exit 18:03:41 (nueva)", sp.en_ventana("exit", 65021, NUEVA), True)
+check("en_ventana exit 18:08:59 (nueva)", sp.en_ventana("exit", 65339, NUEVA), True)
+check("en_ventana exit 18:09:00 (nueva)", sp.en_ventana("exit", 65340, NUEVA), False)
 
 # el segundo de fichaje nunca termina en :00 (10:07:00 no se usa)
 viol = []
@@ -133,6 +134,19 @@ for fecha, ini_e, fin_e, ini_x, fin_x in (
         if not (ini_x <= t <= fin_x and t % 60 != 0):
             viol.append(("exit", fecha, t))
 check("5000 tiradas: nunca en punto (:00) y dentro de la ventana", viol, [])
+
+# el 95% de las tiradas cae en el primer cuarto de la ventana; el resto, despues
+for fecha, nombre in ((VIEJA, "vieja"), (NUEVA, "nueva")):
+    d = datetime(fecha.year, fecha.month, fecha.day, 12, 0, 0, tzinfo=sp.TZ)
+    sp.now_local = lambda d=d: d
+    for modo, fn in (("entry", sp.target_entry), ("exit", sp.target_exit)):
+        ini, span, _ = sp.ventana(modo, fecha)
+        corte = ini + span // 4
+        n = 20000
+        prop = sum(1 for _ in range(n) if fn() <= corte) / n
+        check(f"95% en el primer cuarto ({modo}, ventana {nombre}): {prop:.4f}",
+              abs(prop - sp.P_PRIMER_CUARTO) < 0.012, True)
+
 
 # --- 2. helpers de HTML --------------------------------------------------
 today = sp.now_local().strftime("%d/%m/%Y")
@@ -157,7 +171,9 @@ sp.time.sleep = lambda *_: None
 sp.wait_until = lambda *a, **k: None
 
 def fijar_hora(h, m, s):
-    d = datetime.now(sp.TZ).replace(hour=h, minute=m, second=s, microsecond=0)
+    # Fecha fija (19/10/2026) para que el test no dependa del dia real:
+    # desde esa fecha manda la ventana nueva y punch_once() usa la de hoy.
+    d = datetime(NUEVA.year, NUEVA.month, NUEVA.day, h, m, s, tzinfo=sp.TZ)
     sp.now_local = lambda: d
 
 # A) ventana pasada + ya hecho -> 0, sin alarma
@@ -182,7 +198,7 @@ def sim_c(mode="", pulsar=True):
         return False, "el fichaje no subio en la verificacion"
     return True, "la entrada ya estaba registrada (hoy: 1)"
 sp.run_punch = sim_c
-fijar_hora(10, 6, 0); alarms.clear(); avisos.clear(); calls.clear()
+fijar_hora(10, 0, 0); alarms.clear(); avisos.clear(); calls.clear()
 check("C reintento hecho -> 0", sp.punch_once("entry", "T-C"), 0)
 check("C sin alarma/aviso", (alarms, avisos), ([], []))
 check("C paso modo entry", [c[0] for c in calls], ["entry", "entry"])
@@ -190,7 +206,7 @@ check("C paso modo entry", [c[0] for c in calls], ["entry", "entry"])
 # D) internet caido toda la ventana -> 1 + alarma de red
 sp.run_punch = lambda mode="", pulsar=True: (
     False, "fallo de red: URLError: <urlopen error timed out>")
-fijar_hora(10, 6, 0); alarms.clear(); avisos.clear()
+fijar_hora(10, 0, 0); alarms.clear(); avisos.clear()
 check("D sin internet -> 1", sp.punch_once("entry", "T-D"), 1)
 check("D alarma de red", len(alarms), 1)
 check("D mensaje contiene internet", "internet" in alarms[0], True)

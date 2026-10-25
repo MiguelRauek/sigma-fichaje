@@ -80,10 +80,10 @@ ok(vals["ENTRY_SPAN"] == 239 and vals["EXIT_SPAN"] == 239,
    "duraciones antiguas: entrada 239 s, salida 239 s")
 ok(vent2["entrada"] == (9 * 3600 + 59 * 60, 10 * 3600 + 1 * 60 + 59),
    "ventana de entrada nueva fijada en 09:59:00-10:01:59")
-ok(vent2["salida"] == (18 * 3600, 18 * 3600 + 2 * 60 + 59),
-   "ventana de salida nueva fijada en 18:00:00-18:02:59")
-ok(vals["ENTRY_SPAN_2"] == 179 and vals["EXIT_SPAN_2"] == 179,
-   "duraciones nuevas: entrada 179 s, salida 179 s")
+ok(vent2["salida"] == (18 * 3600, 18 * 3600 + 8 * 60 + 59),
+   "ventana de salida nueva fijada en 18:00:00-18:08:59")
+ok(vals["ENTRY_SPAN_2"] == 179 and vals["EXIT_SPAN_2"] == 539,
+   "duraciones nuevas: entrada 179 s, salida 539 s (9 min)")
 ok(vals["VENTANA_NUEVA_DESDE"] == "19/10/2026",
    f'VENTANA_NUEVA_DESDE = {vals["VENTANA_NUEVA_DESDE"]}')
 
@@ -92,14 +92,14 @@ DOCS = ("README.md", "INSTRUCCIONES.txt", "instrucciones.html", "reloj.sh")
 for doc in DOCS:
     txt = (HERE / doc).read_text(encoding="utf-8")
     for tok in ("10:05", "10:08", "18:05", "18:08",
-                "09:59", "10:01", "18:00", "18:02"):
+                "09:59", "10:01", "18:00"):
         ok(tok in txt, f"{doc} menciona {tok}")
 
 # --- 5. sin restos de los rangos viejos -----------------------------------
 # 18:10:59 el final viejo de la salida; 10:11/18:11:59/10:10:00 los finales
 # viejos de la entrada; y los rangos anteriores a este cambio
-# (10:06-10:09 / 18:06-18:09). OJO: 18:02 ya NO es viejo (es el fin de la
-# ventana nueva de salida).
+# (10:06-10:09 / 18:06-18:09). OJO: 18:02 y 18:08 ya NO son viejos: la
+# ventana nueva de salida acaba en 18:08:59.
 VIEJOS = ("18:10:59", "10:11", "18:11:59", "10:10:00",
           "10:06", "10:09", "18:06", "18:09")
 for doc in DOCS:
@@ -145,7 +145,7 @@ for modo, (a, b) in vent.items():
            f"job de 15 min)")
 
 # --- 7. ultimo dia coherente en el codigo y en los docs -------------------
-ok(vals["LAST_DAY"] == "25/10/2026", f'LAST_DAY = {vals["LAST_DAY"]}')
+ok(vals["LAST_DAY"] == "30/10/2026", f'LAST_DAY = {vals["LAST_DAY"]}')
 for doc in ("README.md", "INSTRUCCIONES.txt", "instrucciones.html"):
     txt = (HERE / doc).read_text(encoding="utf-8")
     ok(vals["LAST_DAY"] in txt, f"{doc} menciona {vals['LAST_DAY']}")

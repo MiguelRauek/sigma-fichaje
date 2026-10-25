@@ -12,9 +12,9 @@ HORARIOS
    Entrada:  entre 10:05:00 y 10:08:59  (hasta el 18/10/2026)
              entre 09:59:00 y 10:01:59  (desde el 19/10/2026)
    Salida :  entre 18:05:00 y 18:08:59  (hasta el 18/10/2026)
-             entre 18:00:00 y 18:02:59  (desde el 19/10/2026)
+             entre 18:00:00 y 18:08:59  (desde el 19/10/2026)
              (segundo al azar, nunca en punto)
-   Hasta el 25/10/2026, incluido. Ese día ficha y se apaga.
+   Hasta el 30/10/2026, incluido. Ese día ficha y se apaga.
 
 
 1. Instalar Termux y Termux:API (desde F-Droid, no desde la Play Store).

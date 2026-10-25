@@ -69,8 +69,8 @@
   <p class="sub">Pulsa cada botón para copiar y pega en <b>Termux</b>.</p>
   <div class="grid">
     <div class="cell"><span>Entrada</span><b>10:05–10:08</b> hasta 18/10 · <b>09:59–10:01</b> desde 19/10</div>
-    <div class="cell"><span>Salida</span><b>18:05–18:08</b> hasta 18/10 · <b>18:00–18:02</b> desde 19/10</div>
-    <div class="cell"><span>Hasta el</span><b>25/10/2026</b></div>
+    <div class="cell"><span>Salida</span><b>18:05–18:08</b> hasta 18/10 · <b>18:00–18:08</b> desde 19/10</div>
+    <div class="cell"><span>Hasta el</span><b>30/10/2026</b></div>
     <div class="cell"><span>Tu Smartphone</span><b>07:30</b></div>
   </div>
 </header>
@@ -78,8 +78,8 @@
 <div id="app"></div>
 
 <footer>
-  <span class="tag">ENTRADA 10:05:00→10:08:59 (hasta 18/10) · 09:59:00→10:01:59 (desde 19/10)</span><span class="tag">SALIDA 18:05:00→18:08:59 (hasta 18/10) · 18:00:00→18:02:59 (desde 19/10)</span><br><br>
-  El reloj se programa solo cada 15 minutos y el fichaje se apaga el 25/10/2026.
+  <span class="tag">ENTRADA 10:05:00→10:08:59 (hasta 18/10) · 09:59:00→10:01:59 (desde 19/10)</span><span class="tag">SALIDA 18:05:00→18:08:59 (hasta 18/10) · 18:00:00→18:08:59 (desde 19/10)</span><br><br>
+  El reloj se programa solo cada 15 minutos y el fichaje se apaga el 30/10/2026.
 </footer>
 
 <script>
@@ -91,7 +91,7 @@ const STEPS = [
       'curl -fsSL -o sigma_boot.sh "https://raw.githubusercontent.com/MiguelRauek/sigma-fichaje/main/sigma_boot.sh?x=10"'
     ]},
   { n:2, t:"Comprobar que es la versión nueva", note:"Debe imprimir 1.",
-    cmds:['grep -c "25/10/2026" sigma_punch.py']},
+    cmds:['grep -c "30/10/2026" sigma_punch.py']},
   { n:3, t:"Instalar el paquete de comandos", note:"DENTRO de Termux. Trae el reloj que programa los fichajes y la alarma. Si falta esto NO se ficha ni suena la alarma: el móvil se duerme durante la espera y el proceso se congela (fallo del 09/10/2026).",
     cmds:['pkg install termux-api']},
   { n:4, t:"Crear config.json con tus credenciales", note:"⚠️ La clave se llama <b>pass</b>, no password. Pega, dale Enter y en <b>nano</b> sustituye TU-CORREO, TU-CONTRASENA, TU-TOKEN y TU-CHAT-ID. Guarda con Ctrl+O, Enter, Ctrl+X. <b>telegram_token</b> y <b>telegram_chat_id</b> son opcionales pero recomendados: si el fichaje falla, además del sonido llega un mensaje a Telegram.",
@@ -138,7 +138,7 @@ function render(){
   const f = document.createElement('div'); f.className='step';
   f.innerHTML = '<div class="hd"><div class="n" style="background:var(--acc)">✓</div><h2>Ya está</h2></div>'
     + '<div class="ok">El móvil se enciende a las 07:30 y se apaga a las 02:00. A partir de ahí el reloj '
-    + 'ficha la <b>entrada entre 10:05 y 10:08</b> y la <b>salida entre 18:05 y 18:08</b> (y desde el 19/10, la <b>entrada entre 09:59 y 10:01</b> y la <b>salida entre 18:00 y 18:02</b>), solo, y se apaga el <b>25/10/2026</b>. No tienes que hacer nada más.</div>'
+    + 'ficha la <b>entrada entre 10:05 y 10:08</b> y la <b>salida entre 18:05 y 18:08</b> (y desde el 19/10, la <b>entrada entre 09:59 y 10:01</b> y la <b>salida entre 18:00 y 18:08</b>), solo, y se apaga el <b>30/10/2026</b>. No tienes que hacer nada más.</div>'
     + '<div class="tip">Si un día quieres comprobarlo: <b>grep "$(date +%F)" fichaje.log</b> · Ver que el reloj late: <b>tail -3 ~/fichaje_boot.log</b> · Para pausar un día, '
     + 'añade la fecha (DD/MM/AAAA) en <b>skip_dates.txt</b>.</div>';
   app.appendChild(f);

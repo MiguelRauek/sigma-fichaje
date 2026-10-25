@@ -8,10 +8,19 @@ Todo ocurre en el móvil (Termux) y el móvil es el único que hace el fichaje.
 | Fichaje | Ventana |
 |---|---|
 | **Entrada** | Segundo aleatorio entre **10:05:00 y 10:08:59** (hasta el 18/10/2026) y entre **09:59:00 y 10:01:59** (desde el 19/10/2026) |
-| **Salida** | Segundo aleatorio entre **18:05:00 y 18:08:59** (hasta el 18/10/2026) y entre **18:00:00 y 18:02:59** (desde el 19/10/2026) |
+| **Salida** | Segundo aleatorio entre **18:05:00 y 18:08:59** (hasta el 18/10/2026) y entre **18:00:00 y 18:08:59** (desde el 19/10/2026) |
 
 El segundo nunca es en punto: `10:07:00`, `18:05:00`, etc. no se usan
 (siempre `:01`–`:59`).
+
+**Reparto del sorteo:** el **95 %** de las veces el segundo cae en el
+**primer cuarto** de la ventana (casi siempre ficha nada más abrir); el 5 %
+restante se reparte por el resto de la ventana, para que no parezca un reloj
+perfecto. Ver `P_PRIMER_CUARTO` y `_segundo_ventana()` en `sigma_punch.py`.
+
+**Por qué la salida acaba a las 18:08:59 y no a las 18:02:59:** con la
+ventana de 3 minutos, el latido de las 18:03:41 del 25/10/2026 (Android
+retrasa la job unos 30 s cada vez) llegó 42 s tarde y la salida no se fichó.
 
 Cada día se sortea un segundo nuevo dentro de cada ventana. Nada se ficha
 antes de que empiece la ventana del día.
@@ -22,7 +31,7 @@ los modos, `--test` incluido. Si alguien lanzara `--exit` a las 10 de la
 mañana o a las 12:00, no se envía nada. Además cada día hay como mucho
 dos fichajes: con uno hecha la entrada está hecha, con dos la salida.
 
-**Periodo: hasta el 25/10/2026, incluido.** Ese día ficha y luego se apaga solo.
+**Periodo: hasta el 30/10/2026, incluido.** Ese día ficha y luego se apaga solo.
 
 ## Cómo funciona
 
@@ -37,7 +46,7 @@ dos fichajes: con uno hecha la entrada está hecha, con dos la salida.
    - **fuera de la ventana del modo → no se pulsa**, aunque el botón esté en
      el color que sea (hasta el 18/10/2026: entrada 10:05–10:08:59 y salida
      18:05–18:08:59; desde el 19/10/2026: entrada 09:59–10:01:59 y salida
-     18:00–18:02:59);
+     18:00–18:08:59);
    - no coincide (p. ej. un `--entry` con el botón ya en rojo) → **no se
      pulsa**, para nunca registrar una salida a las 10 de la mañana.
 4. **Fichar**: POST `c_usu` + `c_tip` (el leído) + `fic_subtipo=0` (horas

@@ -17,7 +17,7 @@ Uso:
 
 Los fichajes SOLO se registran dentro de su ventana (hasta el 18/10/2026:
 entrada 10:05:00-10:08:59 y salida 18:05:00-18:08:59; desde el 19/10/2026:
-entrada 09:59:00-10:01:59 y salida 18:00:00-18:02:59). decidir() lo bloquea en
+entrada 09:59:00-10:01:59 y salida 18:00:00-18:08:59). decidir() lo bloquea en
 todos los modos, --test incluido: fuera de la ventana no hay pulsacion posible.
 
 Modo diario (Pydroid): sin argumentos ficha la entrada y luego la salida en la
@@ -87,7 +87,7 @@ TMP_DIR = os.environ.get("TMPDIR", "/data/data/com.termux/files/usr/tmp")
 
 # Último día del modo permanente (DD/MM/AAAA). Vacío = sin límite.
 # Poner "" para que no termine nunca, o una fecha para que se apague solo.
-LAST_DAY = "25/10/2026"
+LAST_DAY = "30/10/2026"
 
 def log(msg: str) -> None:
     """Escribe en pantalla y en fichaje.log (para ver si arrancó el boot script)."""
@@ -131,8 +131,14 @@ def seconds_of_day(dt: datetime) -> int:
 
 # Ventanas de fichaje. Cambian el lunes 19/10/2026.
 #   Hasta el 18/10/2026:  entrada 10:05:00-10:08:59, salida 18:05:00-18:08:59
-#   Desde el 19/10/2026:  entrada 09:59:00-10:01:59, salida 18:00:00-18:02:59
+#   Desde el 19/10/2026:  entrada 09:59:00-10:01:59, salida 18:00:00-18:08:59
 # Dentro de cada ventana se sortea un segundo, para no fichar siempre igual.
+# El 95% de las tiradas cae en el primer cuarto de la ventana (ver
+# _segundo_ventana): asi casi siempre se ficha nada mas abrir, pero de vez en
+# cuando cae mas tarde y no parece un reloj perfecto.
+# La salida se amplio a 18:00:00-18:08:59 el 25/10/2026: con la ventana de 3
+# minutos, el latido de las 18:03:41 (Android retrasa la job ~30 s cada vez)
+# llegaba 42 s tarde y la salida no se fichaba.
 ENTRY_START = 10 * 3600 + 5 * 60       # 10:05:00
 ENTRY_SPAN = 239                        # -> hasta 10:08:59
 EXIT_START = 18 * 3600 + 5 * 60        # 18:05:00
@@ -146,10 +152,14 @@ VENTANA_NUEVA_DESDE = "19/10/2026"
 ENTRY_START_2 = 9 * 3600 + 59 * 60     # 09:59:00
 ENTRY_SPAN_2 = 179                      # -> hasta 10:01:59
 EXIT_START_2 = 18 * 3600               # 18:00:00
-EXIT_SPAN_2 = 179                      # -> hasta 18:02:59
+EXIT_SPAN_2 = 539                      # -> hasta 18:08:59
 
 ENTRY_TXT_2 = "09:59:00-10:01:59"
-EXIT_TXT_2 = "18:00:00-18:02:59"
+EXIT_TXT_2 = "18:00:00-18:08:59"
+
+# Probabilidad de que el segundo sorteado caiga en el primer cuarto de la
+# ventana. El resto (1 - P) se reparte por los otros tres cuartos.
+P_PRIMER_CUARTO = 0.95
 
 _VENTANA_NUEVA_DESDE_DT = datetime.strptime(VENTANA_NUEVA_DESDE, "%d/%m/%Y").date()
 
@@ -174,8 +184,21 @@ def _segundo_ventana(inicio: int, span: int) -> int:
 
     El segundo 0 de cada minuto queda fuera: 10:07:00, 18:05:00, etc.
     nunca se usan como hora de fichaje.
+
+    El PRIMER CUARTO de la ventana concentra el 95% de las tiradas; el 5%
+    restante se reparte por el resto de la ventana. Asi el fichaje cae casi
+    siempre al principio (que es lo que cuadra con el horario) pero de vez en
+    cuando sale mas tarde, y no parece un reloj perfecto.
     """
-    permitidos = [s for s in range(span + 1) if (inicio + s) % 60 != 0]
+    corte = span // 4
+    if random.random() < P_PRIMER_CUARTO:
+        zona = range(0, corte + 1)
+    else:
+        zona = range(corte + 1, span + 1)
+    permitidos = [s for s in zona if (inicio + s) % 60 != 0]
+    if not permitidos:
+        # ventana tan corta que la zona entera cae en los :00: usar toda
+        permitidos = [s for s in range(span + 1) if (inicio + s) % 60 != 0]
     return inicio + random.choice(permitidos)
 
 def target_entry() -> int:
@@ -484,7 +507,7 @@ def decidir(mode: str, c_tip: str, before: int, ahora: int | None = None,
       * La ENTRADA solo se registra dentro de su ventana (hasta el 18/10/2026
         10:05:00-10:08:59; desde el 19/10/2026 09:59:00-10:01:59).
       * La SALIDA  solo se registra dentro de su ventana (hasta el 18/10/2026
-        18:05:00-18:08:59; desde el 19/10/2026 18:00:00-18:02:59).
+        18:05:00-18:08:59; desde el 19/10/2026 18:00:00-18:08:59).
       * Fuera de esa ventana NO se pulsa nunca, aunque el boton este en el
         color que sea. Esto es lo que evita una salida a las 10 de la
         manana: sin esta regla, un --entry repetido con el boton ya en
